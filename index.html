@@ -1,25 +1,47 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>QR Message</title>
   <style>
+    :root {
+      --text-size: 1rem; /* ✅ change this to adjust text size */
+    }
+
     body {
-      font-family: system-ui;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
       height: 100vh;
       background: #fafafa;
       margin: 0;
+      padding: 1em;
     }
+
     .card {
       background: white;
       padding: 2em;
       border-radius: 1em;
       box-shadow: 0 4px 16px rgba(0,0,0,.1);
       max-width: 600px;
-      text-align: center; /* ✅ centers text inside */
+      width: min(90%, 600px);
+      text-align: center;
+      font-size: var(--text-size);
+      line-height: 1.6;
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    @media (max-width: 480px) {
+      :root {
+        --text-size: 0.95rem;
+      }
+      .card {
+        padding: 1.5em;
+      }
     }
   </style>
 </head>
@@ -30,13 +52,23 @@
   </div>
 
   <script>
-    // === Replace these with your actual bot info ===
+    // === Replace with your actual Telegram bot info ===
     const token = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
     const chatId = "8399286438";
     const msg = encodeURIComponent("Dry Ice Alert - QR code scanned at " + new Date().toLocaleString());
 
-    fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`)
-      .catch(()=>{});
+    // === Only send once per 5 minutes ===
+    const lastSent = localStorage.getItem("lastTelegramSend");
+    const now = Date.now();
+    const FIVE_MINUTES = 5 * 60 * 1000;
+
+    if (!lastSent || now - lastSent > FIVE_MINUTES) {
+      fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`)
+        .then(() => {
+          localStorage.setItem("lastTelegramSend", now);
+        })
+        .catch(() => {});
+    }
   </script>
 </body>
 </html>
