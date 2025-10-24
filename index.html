@@ -58,10 +58,7 @@
     const msg = encodeURIComponent("Dry Ice Alert - QR code scanned at " + new Date().toLocaleString());
     
       fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`)
-        .then(() => {
-          localStorage.setItem("lastTelegramSend", now);
-        })
-        .catch(() => {});
+          .catch(() => {});
     }
   </script>
 </body>
