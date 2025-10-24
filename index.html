@@ -51,15 +51,14 @@
     <p>Thank you for letting me know about the low dry ice! It will be ordered ASAP, if it hasn't already.</p>
   </div>
 
-  <script>
-    // === Replace with your actual Telegram bot info ===
+   <script>
+    // === Replace these ===
     const token = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
     const chatId = "8399286438";
     const msg = encodeURIComponent("Dry Ice Alert - QR code scanned at " + new Date().toLocaleString());
-    
-      fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`)
-          .catch(() => {});
-    }
+
+    fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`)
+      .catch(()=>{});
   </script>
 </body>
 </html>
