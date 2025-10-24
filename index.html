@@ -5,7 +5,7 @@
   <title>QR Message</title>
   <style>
     :root {
-      --text-size: 1rem; /* change this to adjust text size */
+      --text-size: 2rem; /* change this to adjust text size */
     }
 
     body {
@@ -56,13 +56,7 @@
     const token = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
     const chatId = "8399286438";
     const msg = encodeURIComponent("Dry Ice Alert - QR code scanned at " + new Date().toLocaleString());
-
-    // === Only send once per 5 minutes ===
-    const lastSent = localStorage.getItem("lastTelegramSend");
-    const now = Date.now();
-    const FIVE_MINUTES = 0.5 * 60 * 1000;
-
-    if (!lastSent || now - lastSent > FIVE_MINUTES) {
+    
       fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`)
         .then(() => {
           localStorage.setItem("lastTelegramSend", now);
