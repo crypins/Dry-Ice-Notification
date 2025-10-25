@@ -1,203 +1,250 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>QR Message</title>
+  <meta charset="utf-8" />
+  <title>Dry Ice Notification (Firebase-synced)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root {
-      --text-size: 2rem;
-    }
-
+    :root { --text-size: 1.6rem; }
     body {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background: #fafafa;
-      margin: 0;
-      padding: 1em;
+      display:flex; align-items:center; justify-content:center;
+      height:100vh; margin:0; background:#f7f7fb; padding:1rem;
     }
-
     .card {
-      background: white;
-      padding: 2em;
-      border-radius: 1em;
-      box-shadow: 0 4px 16px rgba(0,0,0,.1);
-      max-width: 600px;
-      width: min(90%, 600px);
-      text-align: center;
-      font-size: var(--text-size);
-      line-height: 1.6;
+      background:white; padding:1.75rem; border-radius:12px;
+      box-shadow:0 6px 22px rgba(0,0,0,0.08); width:min(640px,92%);
+      text-align:center; font-size:var(--text-size); line-height:1.4;
     }
-
-    h2 {
-      margin-top: 0;
-    }
-
+    h2 { margin:0 0 .25rem 0; font-size:1.15em; }
+    p { margin:.25rem 0 1rem 0; color:#444; font-size:.95rem; }
     button {
-      margin-top: 1.5em;
-      font-size: 1rem;
-      padding: 0.75em 1.5em;
-      border: none;
-      border-radius: 0.5em;
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
-      transition: background-color 0.3s ease, transform 0.1s ease;
+      margin-top:.5rem; font-size:1rem; padding:.7rem 1.25rem;
+      border-radius:8px; border:none; background:#0b74f6; color:white;
+      cursor:pointer; transition:transform .08s ease, background .12s ease;
     }
-
-    button:hover:not(:disabled) {
-      background-color: #0056b3;
-    }
-
-    button:active:not(:disabled) {
-      transform: scale(0.98);
-    }
-
-    button:disabled {
-      background-color: #aaa;
-      cursor: not-allowed;
-    }
-
-    .timestamp {
-      margin-top: 1em;
-      font-size: 1rem;
-      color: #555;
-    }
-
-    @media (max-width: 480px) {
-      :root {
-        --text-size: 0.95rem;
-      }
-      .card {
-        padding: 1.5em;
-      }
-    }
+    button:active { transform:scale(.99); }
+    button:disabled { background:#bfbfc2; cursor:not-allowed; }
+    .timestamp { margin-top:1rem; font-size:.95rem; color:#555; }
+    @media (max-width:480px) { :root { --text-size:1.05rem; } .card{padding:1rem} }
   </style>
+  <!-- Use modular Firebase SDK (v11) via ES modules -->
 </head>
 <body>
   <div class="card">
     <h2>Dry Ice Notification</h2>
-    <p>Please click the button below to send a notification about low dry ice levels.</p>
+    <p>Click the button to send a dry ice alert. This button is synchronized across devices.</p>
     <button id="notifyBtn">Send Notification</button>
-    <div id="lastSentDisplay" class="timestamp"></div>
+    <div id="lastSentDisplay" class="timestamp">Loading status...</div>
   </div>
 
-  <script>
-    // === Configuration ===
-    const token = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
-    const chatId = "8399286438";
-    const STORAGE_KEY = "dryice_alert_last_sent_local";
+  <!-- Firebase modular SDK imports as ES modules -->
+  <script type="module">
+    // ---------- CONFIGURATION (REPLACE THESE) ----------
+    // Create a web app in Firebase console and paste your config here.
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Telegram bot configuration (replace if desired)
+    const TELEGRAM_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
+    const TELEGRAM_CHAT_ID = "8399286438";
+
+    // Countdown duration
     const FIVE_MINUTES = 5 * 60 * 1000;
 
+    // ---------- Imports from Firebase v11 modular SDK ----------
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import {
+      getDatabase,
+      ref as dbRef,
+      onValue,
+      set as dbSet,
+      get as dbGet
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    // ---------- Initialize Firebase ----------
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const lastSentRef = dbRef(db, "dryice/lastSent"); // single location for timestamp
+
+    // ---------- DOM elements ----------
     const btn = document.getElementById("notifyBtn");
     const lastSentDisplay = document.getElementById("lastSentDisplay");
 
-    // 🕒 Format milliseconds into mm:ss
+    // ---------- Utility: format ms -> mm:ss ----------
     function formatTime(ms) {
       const totalSeconds = Math.max(0, Math.floor(ms / 1000));
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
-      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+      return `${minutes}:${String(seconds).padStart(2, "0")}`;
     }
 
-    // 🕒 Update live "time since last notification"
-    function updateTimeDisplay() {
-      const lastSent = localStorage.getItem(STORAGE_KEY);
-      if (!lastSent) {
+    // ---------- Local intervals ----------
+    let countdownInterval = null; // updates button countdown per second
+    let displayInterval = null;   // updates "time since last" per second
+
+    // ---------- Update the "time since last notification" (live per-second) ----------
+    function startDisplayUpdater(remoteTimestamp) {
+      // Clear previous if any
+      if (displayInterval) clearInterval(displayInterval);
+
+      // If there is no timestamp yet, show default
+      if (!remoteTimestamp) {
         lastSentDisplay.textContent = "No notification sent yet.";
         return;
       }
 
-      const elapsedMs = Date.now() - parseInt(lastSent);
-      const seconds = Math.floor(elapsedMs / 1000);
+      // Update immediately and then every second
+      function updateNow() {
+        const elapsedMs = Date.now() - remoteTimestamp;
+        const secs = Math.floor(elapsedMs / 1000);
 
-      if (seconds < 5) {
-        lastSentDisplay.textContent = "Notification just sent.";
-      } else if (seconds < 60) {
-        lastSentDisplay.textContent = `Last notification sent ${seconds} seconds ago.`;
-      } else if (seconds < 3600) {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        lastSentDisplay.textContent = `Last notification sent ${mins} min ${secs}s ago.`;
-      } else {
-        const hrs = Math.floor(seconds / 3600);
-        const mins = Math.floor((seconds % 3600) / 60);
-        lastSentDisplay.textContent = `Last notification sent ${hrs}h ${mins}m ago.`;
+        if (secs < 5) {
+          lastSentDisplay.textContent = "Notification just sent.";
+        } else if (secs < 60) {
+          lastSentDisplay.textContent = `Last notification sent ${secs} second${secs === 1 ? "" : "s"} ago.`;
+        } else if (secs < 3600) {
+          const m = Math.floor(secs / 60);
+          const s = secs % 60;
+          lastSentDisplay.textContent = `Last notification sent ${m} min ${s}s ago.`;
+        } else {
+          const h = Math.floor(secs / 3600);
+          const m = Math.floor((secs % 3600) / 60);
+          lastSentDisplay.textContent = `Last notification sent ${h}h ${m}m ago.`;
+        }
       }
+
+      updateNow();
+      displayInterval = setInterval(updateNow, 1000);
     }
 
-    // ⚙️ Manage button state (disable/re-enable and countdown)
-    function handleButtonState() {
-      const lastSent = localStorage.getItem(STORAGE_KEY);
-      if (!lastSent) {
+    // ---------- Manage button state and visible countdown ----------
+    function startCountdown(remoteTimestamp) {
+      // Cleanup previous countdown interval
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+
+      if (!remoteTimestamp) {
+        // No timestamp => button active
         btn.disabled = false;
         btn.textContent = "Send Notification";
         return;
       }
 
-      const elapsed = Date.now() - parseInt(lastSent);
+      const elapsed = Date.now() - remoteTimestamp;
+      const remaining = FIVE_MINUTES - elapsed;
 
-      if (elapsed < FIVE_MINUTES) {
-        btn.disabled = true;
-        const remaining = FIVE_MINUTES - elapsed;
-        btn.textContent = `Thank you! — available in ${formatTime(remaining)}`;
-
-        // Live countdown
-        const countdown = setInterval(() => {
-          const elapsedNow = Date.now() - parseInt(lastSent);
-          const remainingNow = FIVE_MINUTES - elapsedNow;
-          if (remainingNow <= 0) {
-            clearInterval(countdown);
-            btn.disabled = false;
-            btn.textContent = "Send Notification";
-          } else {
-            btn.textContent = `Thank you! — available in ${formatTime(remainingNow)}`;
-          }
-        }, 1000);
-      } else {
+      if (remaining <= 0) {
         btn.disabled = false;
         btn.textContent = "Send Notification";
+        return;
       }
+
+      // Disable and show live remaining time
+      btn.disabled = true;
+      btn.textContent = `Thank you! — available in ${formatTime(remaining)}`;
+
+      countdownInterval = setInterval(() => {
+        const nowElapsed = Date.now() - remoteTimestamp;
+        const nowRemaining = FIVE_MINUTES - nowElapsed;
+        if (nowRemaining <= 0) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+          btn.disabled = false;
+          btn.textContent = "Send Notification";
+        } else {
+          btn.textContent = `Thank you! — available in ${formatTime(nowRemaining)}`;
+        }
+      }, 1000);
     }
 
-    // === Initialize ===
-    updateTimeDisplay();
-    handleButtonState();
-    setInterval(updateTimeDisplay, 1000); // Live per second
+    // ---------- React to remote value changes in Realtime DB ----------
+    // onValue gives real-time updates across all connected clients.
+    onValue(lastSentRef, (snapshot) => {
+      // snapshot.val() will be the timestamp (ms since epoch) or null/undefined
+      const val = snapshot.val();
+      const remoteTimestamp = typeof val === "number" ? val : (val ? Number(val) : null);
 
-    // === Click handler ===
+      // Update UI parts
+      startDisplayUpdater(remoteTimestamp);
+      startCountdown(remoteTimestamp);
+    }, (err) => {
+      console.error("Firebase onValue error:", err);
+      // If DB read fails, fall back to enabling the button so user isn't blocked.
+      btn.disabled = false;
+      btn.textContent = "Send Notification";
+      lastSentDisplay.textContent = "Status unavailable (offline).";
+    });
+
+    // ---------- Click handler: human-only safeguard, confirm, send telegram, update DB ----------
     btn.addEventListener("click", async (event) => {
-      // 🧠 Block programmatic clicks
+      // Only accept genuine user clicks
       if (!event.isTrusted) {
         console.warn("Blocked non-human click attempt.");
         return;
       }
 
-      // Always confirm
-      const confirmSend = confirm("Are you sure you want to send a dry ice alert?");
-      if (!confirmSend) return;
+      // Always ask for confirmation
+      if (!confirm("Are you sure you want to send a dry ice alert?")) return;
 
+      // Show sending UI
       btn.disabled = true;
       btn.textContent = "Sending...";
 
+      // Prepare message using local device's local time string
       const now = Date.now();
-      const msg = encodeURIComponent(
-        "Dry Ice Alert - QR code scanned on " + new Date(now).toLocaleString()
-      );
+      const msgText = `Dry Ice Alert - QR code scanned on ${new Date(now).toLocaleString()}`;
 
       try {
-        // Send Telegram message
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`);
-        localStorage.setItem(STORAGE_KEY, now.toString());
-        updateTimeDisplay();
-        handleButtonState();
-      } catch {
+        // Send message to Telegram (public bot)
+        const tgResp = await fetch(
+          `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msgText)}`
+        );
+
+        // optional: check TG success (status 200 and ok:true)
+        const tgJson = await tgResp.json();
+        if (!tgJson || tgJson.ok !== true) {
+          console.warn("Telegram API responded with an error:", tgJson);
+          // allow continuing to set DB so other clients see action; you may choose differently
+        }
+
+        // Write timestamp to Firebase Realtime Database for global sync
+        // Use a number (ms since epoch) so clients read as Number
+        await dbSet(lastSentRef, now);
+
+        // The onValue listener will pick up the new value and update UI for all clients,
+        // so nothing else required here.
+      } catch (err) {
+        console.error("Send or DB update failed:", err);
         btn.textContent = "Error — Try Again";
         btn.disabled = false;
       }
     });
+
+    // ---------- Extra: on initial load, attempt a single read to seed UI quickly ----------
+    (async function seedInitialUI() {
+      try {
+        const snap = await dbGet(lastSentRef);
+        const val = snap && snap.exists() ? snap.val() : null;
+        const remoteTimestamp = typeof val === "number" ? val : (val ? Number(val) : null);
+        startDisplayUpdater(remoteTimestamp);
+        startCountdown(remoteTimestamp);
+      } catch (e) {
+        console.warn("Initial DB read failed:", e);
+        lastSentDisplay.textContent = "Status unavailable (offline).";
+        btn.disabled = false;
+        btn.textContent = "Send Notification";
+      }
+    })();
   </script>
 </body>
 </html>
