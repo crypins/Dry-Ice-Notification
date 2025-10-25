@@ -35,6 +35,31 @@
       margin-top: 0;
     }
 
+    button {
+      margin-top: 1.5em;
+      font-size: 1rem;
+      padding: 0.75em 1.5em;
+      border: none;
+      border-radius: 0.5em;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.1s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #0056b3;
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+
     @media (max-width: 480px) {
       :root {
         --text-size: 0.95rem;
@@ -47,18 +72,43 @@
 </head>
 <body>
   <div class="card">
-    <h2>A notification has been sent!</h2>
-    <p>Thank you for letting me know about the low dry ice! It will be ordered ASAP, if it hasn't already. Please do not reload this page - it sends a notification each time.</p>
+    <h2>Dry Ice Notification</h2>
+    <p>Please click the button below to send a notification about low dry ice levels.</p>
+    <button id="notifyBtn">Send Notification</button>
   </div>
 
-   <script>
-    // === Replace these ===
+  <script>
     const token = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
     const chatId = "8399286438";
-    const msg = encodeURIComponent("Dry Ice Alert - QR code scanned on " + new Date().toLocaleString());
+    const STORAGE_KEY = "dryice_alert_last_sent";
+    const FIVE_MINUTES = 5 * 60 * 1000;
 
-    fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`)
-      .catch(()=>{});
+    const btn = document.getElementById("notifyBtn");
+
+    // check if user clicked within last 5 min
+    const lastSent = localStorage.getItem(STORAGE_KEY);
+    if (lastSent && Date.now() - parseInt(lastSent) < FIVE_MINUTES) {
+      btn.disabled = true;
+      btn.textContent = "Thank you!";
+    }
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.textContent = "Sending...";
+
+      const msg = encodeURIComponent(
+        "Dry Ice Alert - QR code scanned on " + new Date().toLocaleString()
+      );
+
+      try {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`);
+        localStorage.setItem(STORAGE_KEY, Date.now().toString());
+        btn.textContent = "Thank you!";
+      } catch {
+        btn.textContent = "Error — Try Again";
+        btn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
