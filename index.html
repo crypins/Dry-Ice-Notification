@@ -1,216 +1,178 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Dry Ice Notification</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    :root { --text-size: 1.6rem; }
-    body {
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      display:flex; align-items:center; justify-content:center;
-      height:100vh; margin:0; background:#f7f7fb; padding:1rem;
-    }
-    .card {
-      background:white; padding:1.75rem; border-radius:12px;
-      box-shadow:0 6px 22px rgba(0,0,0,0.08); width:min(640px,92%);
-      text-align:center; font-size:var(--text-size); line-height:1.4;
-    }
-    h2 { margin:0 0 .25rem 0; font-size:1.15em; }
-    p { margin:.25rem 0 1rem 0; color:#444; font-size:.95rem; }
-    button {
-      margin-top:.5rem; font-size:1rem; padding:.7rem 1.25rem;
-      border-radius:8px; border:none; background:#0b74f6; color:white;
-      cursor:pointer; transition:transform .08s ease, background .12s ease;
-    }
-    button:active { transform:scale(.99); }
-    button:disabled { background:#bfbfc2; cursor:not-allowed; }
-    .timestamp { margin-top:1rem; font-size:.95rem; color:#555; }
-    @media (max-width:480px) { :root { --text-size:1.05rem; } .card{padding:1rem} }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Button Box</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f0f0f0;
+    }
+    .box {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 300px;
+    }
+    button {
+      padding: 0.7rem 1.5rem;
+      font-size: 1rem;
+      margin-top: 1rem;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
+    }
+    button:disabled {
+      background-color: grey;
+      cursor: not-allowed;
+    }
+    .timer {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .test-block {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #333;
+    }
+  </style>
 </head>
 <body>
-  <div class="card">
-    <h2>Dry Ice Notification</h2>
-    <p>Click the button to send a dry ice alert. Contact clyde.rypins@berkeley.edu if this site isn't working.</p>
-        <button id="notifyBtn" disabled>Send Notification</button>
-    <div id="lastSentDisplay" class="timestamp">Checking database...</div>
-  </div>
+  <div class="box">
+    <h2>Title Here</h2>
+    <p>Subtitle Here</p>
+    <button id="sendButton">Send Message</button>
+    <div class="timer" id="timer"></div>
 
-  <script type="module">
-    // ---------- CONFIGURATION ----------
-    const firebaseConfig = {
-      apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
-      authDomain: "dryicenotif.firebaseapp.com",
-      databaseURL: "https://dryicenotif-default-rtdb.firebaseio.com",
-      projectId: "dryicenotif",
-      storageBucket: "dryicenotif.firebasestorage.app",
-      messagingSenderId: "217680440618",
-      appId: "1:217680440618:web:c07ecbe063e68ea49bc253",
-      measurementId: "G-GEJ4RCBGF3"
-    };
+    <!-- TESTING BLOCK: Can be removed after testing -->
+    <div class="test-block">
+      <label>
+        <input type="checkbox" id="testCooldown"> Use 5s cooldown (test only)
+      </label>
+    </div>
+  </div>
 
-    const TELEGRAM_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
-    const TELEGRAM_CHAT_ID = "8399286438";
-    const FIVE_MINUTES = 5 * 60 * 1000;
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-    // 💡 FIX: Consolidated and placed all imports at the top.
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref as dbRef, onValue, set as dbSet, get as dbGet } 
-      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-    
-    // 💡 FIX: Corrected Initialization Order (app must be defined first).
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getDatabase(app);
-    
-    signInAnonymously(auth).catch((err) => console.error("Anon sign-in failed:", err));
-    onAuthStateChanged(auth, (user) => {
-    if (user) {
-      // user.uid available, DB writes allowed (per rules)
-      }
-    });
-    
-    const lastSentRef = dbRef(db, "dryice/lastSent");
+  <script>
+    // ----------- USER INPUT REQUIRED ----------------
+    const TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE";
+    const TELEGRAM_CHAT_ID = "YOUR_CHAT_ID_HERE";
+    const FIREBASE_CONFIG = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
+      databaseURL: "YOUR_FIREBASE_DB_URL",
+      projectId: "YOUR_FIREBASE_PROJECT_ID",
+      storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_FIREBASE_MSG_SENDER_ID",
+      appId: "YOUR_FIREBASE_APP_ID"
+    };
+    const COOLDOWN_HOURS = 12; // main cooldown
+    // -----------------------------------------------
 
-    const btn = document.getElementById("notifyBtn");
-    const lastSentDisplay = document.getElementById("lastSentDisplay");
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const db = firebase.database();
+    const auth = firebase.auth();
+    const button = document.getElementById('sendButton');
+    const timerDiv = document.getElementById('timer');
+    const testCheckbox = document.getElementById('testCooldown');
 
-    let countdownInterval = null;
-    let displayInterval = null;
+    const MAIN_COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
+    const TEST_COOLDOWN_MS = 5000; // 5 seconds for testing
+    const DB_PATH = "telegramButtonLastClick";
 
-    function formatTime(ms) {
-      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-      const m = Math.floor(totalSeconds / 60);
-      const s = totalSeconds % 60;
-      return `${m}:${String(s).padStart(2, "0")}`;
-    }
+    // Anonymous authentication
+    auth.signInAnonymously().catch(error => {
+      console.error("Auth error:", error);
+      alert("Unable to sign in anonymously. Check Firebase configuration.");
+    });
 
-    function startDisplayUpdater(remoteTimestamp) {
-      if (displayInterval) clearInterval(displayInterval);
-      if (!remoteTimestamp) {
-        lastSentDisplay.textContent = "No notification sent yet.";
-        return;
-      }
-      function updateNow() {
-        const elapsedMs = Date.now() - remoteTimestamp;
-        const secs = Math.floor(elapsedMs / 1000);
-        if (secs < 5) lastSentDisplay.textContent = "Notification just sent.";
-        else if (secs < 60) lastSentDisplay.textContent = `Last sent ${secs}s ago.`;
-        else if (secs < 3600) {
-          const m = Math.floor(secs / 60), s = secs % 60;
-          lastSentDisplay.textContent = `Last sent ${m}m ${s}s ago.`;
-        } else {
-          const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
-          lastSentDisplay.textContent = `Last sent ${h}h ${m}m ago.`;
-        }
-      }
-      updateNow();
-      displayInterval = setInterval(updateNow, 1000);
-    }
+    async function sendTelegramMessage() {
+      const message = encodeURIComponent("Button was clicked!");
+      const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${message}`;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.description);
+      } catch (error) {
+        console.error("Telegram send error:", error);
+        alert("Failed to send message. Check console for details.");
+      }
+    }
 
-    function startCountdown(remoteTimestamp) {
-      if (countdownInterval) clearInterval(countdownInterval);
-      if (!remoteTimestamp) {
-        btn.disabled = false;
-        btn.textContent = "Send Notification";
-        return;
-      }
-      const elapsed = Date.now() - remoteTimestamp;
-      const remaining = FIVE_MINUTES - elapsed;
-      if (remaining <= 0) {
-        btn.disabled = false;
-        btn.textContent = "Send Notification";
-        return;
-      }
-      btn.disabled = true;
-      btn.textContent = `Thank you! — available in ${formatTime(remaining)}`;
-      countdownInterval = setInterval(() => {
-        const nowElapsed = Date.now() - remoteTimestamp;
-        const nowRemaining = FIVE_MINUTES - nowElapsed;
-        if (nowRemaining <= 0) {
-          clearInterval(countdownInterval);
-          btn.disabled = false;
-          btn.textContent = "Send Notification";
-        } else {
-          btn.textContent = `Thank you! — available in ${formatTime(nowRemaining)}`;
-        }
-      }, 1000);
-    }
+    function getCurrentCooldownMs() {
+      return testCheckbox.checked ? TEST_COOLDOWN_MS : MAIN_COOLDOWN_MS;
+    }
 
-    // ---------- Ensure DB checked before enabling ----------
-    let dbChecked = false;
+    function updateTimer(remainingMs) {
+      if (remainingMs <= 0) {
+        button.disabled = false;
+        button.textContent = "Send Message";
+        timerDiv.textContent = "";
+        return;
+      }
+      const hours = Math.floor(remainingMs / 3600000);
+      const minutes = Math.floor((remainingMs % 3600000) / 60000);
+      const seconds = Math.floor((remainingMs % 60000) / 1000);
+      timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
+    }
 
-    onValue(lastSentRef, (snapshot) => {
-      dbChecked = true;
-      const val = snapshot.val();
-      const remoteTimestamp = typeof val === "number" ? val : (val ? Number(val) : null);
-      startDisplayUpdater(remoteTimestamp);
-      startCountdown(remoteTimestamp);
-    }, (err) => {
-      console.error("Firebase onValue error:", err);
-      lastSentDisplay.textContent = "Status unavailable (offline).";
-      dbChecked = true;
-      btn.disabled = false;
-      btn.textContent = "Send Notification";
-    });
+    async function checkCooldown() {
+      const snapshot = await db.ref(DB_PATH).get();
+      const lastClick = snapshot.val();
+      const now = Date.now();
+      const cooldownMs = getCurrentCooldownMs();
+      let remaining = lastClick ? (lastClick + cooldownMs - now) : 0;
 
-    btn.addEventListener("click", async (event) => {
-      if (!dbChecked) {
-        alert("Please wait, still checking server status...");
-        return;
-      }
-      if (!event.isTrusted) {
-        console.warn("Blocked non-human click attempt.");
-        return;
-      }
-      if (!confirm("Are you sure you want to send a dry ice alert?")) return;
-      
-      btn.disabled = true;
-      btn.textContent = "Sending...";
-      
-      const now = Date.now();
-      const msgText = `Dry Ice Alert - QR code scanned on ${new Date(now).toLocaleString()}`;
-      
-      try {
-        // 1. Send Telegram Message
-        const tgResp = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msgText)}`);
-        
-        // 💡 FIX: Check Telegram API response status. If it failed, throw an error to be caught below.
-        if (!tgResp.ok) {
-          const errorBody = await tgResp.json();
-          console.error("Telegram API response error:", errorBody);
-          throw new Error(`Telegram API failed with status ${tgResp.status}: ${errorBody.description || 'Unknown error'}`);
-        }
+      if (remaining > 0) {
+        button.disabled = true;
+        button.textContent = "Thank you!";
+      } else {
+        button.disabled = false;
+        button.textContent = "Send Message";
+      }
 
-        // 2. Update Database (only runs if Telegram message sent successfully)
-        await dbSet(lastSentRef, now);
-        
-      } catch (err) {
-        // FAILURE: Handles network errors, failed DB writes, or Telegram API errors.
-        console.error("Notification failed:", err);
-        btn.textContent = "Error — Try Again";
-        btn.disabled = false;
-      }
-    });
+      setInterval(() => {
+        const snapshot = db.ref(DB_PATH).get().then(snap => {
+          const lastClick = snap.val();
+          const remainingMs = lastClick ? (lastClick + getCurrentCooldownMs() - Date.now()) : 0;
+          updateTimer(remainingMs);
+        });
+      }, 1000);
+    }
 
-    (async function seedInitialUI() {
-      try {
-        const snap = await dbGet(lastSentRef);
-        dbChecked = true;
-        const val = snap.exists() ? snap.val() : null;
-        const remoteTimestamp = typeof val === "number" ? val : (val ? Number(val) : null);
-        startDisplayUpdater(remoteTimestamp);
-        startCountdown(remoteTimestamp);
-      } catch (e) {
-        console.warn("Initial DB read failed:", e);
-        dbChecked = true;
-        lastSentDisplay.textContent = "Status unavailable (offline).";
-        btn.disabled = false;
-        btn.textContent = "Send Notification";
-      }
-    })();
-  </script>
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      button.textContent = "Thank you!";
+
+      await sendTelegramMessage();
+
+      try {
+        await db.ref(DB_PATH).set(Date.now());
+      } catch (error) {
+        console.error("Cannot write: cooldown active", error);
+        alert("Button cannot be pressed yet. Please wait until cooldown is over.");
+      }
+    });
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        checkCooldown();
+      }
+    });
+  </script>
 </body>
 </html>
