@@ -105,4 +105,54 @@
       const elapsedMins = Math.floor(elapsedMs / 60000);
       const elapsedHrs = Math.floor(elapsedMins / 60);
 
-      if (e
+      if (elapsedMins < 1) {
+        lastSentDisplay.textContent = "Notification just sent.";
+      } else if (elapsedMins < 60) {
+        lastSentDisplay.textContent = `Last notification sent ${elapsedMins} minute${elapsedMins === 1 ? "" : "s"} ago.`;
+      } else {
+        lastSentDisplay.textContent = `Last notification sent ${elapsedHrs} hour${elapsedHrs === 1 ? "" : "s"} ago.`;
+      }
+    }
+
+    // Initialize and update every 60 seconds
+    updateTimeDisplay();
+    setInterval(updateTimeDisplay, 60000);
+
+    // === Button click handler ===
+    btn.addEventListener("click", async (event) => {
+      // 🧠 SAFEGUARD: Only process real, human clicks
+      if (!event.isTrusted) {
+        console.warn("Blocked non-human click attempt.");
+        return;
+      }
+
+      // Always ask for confirmation before sending
+      const confirmSend = confirm("Are you sure you want to send a dry ice alert?");
+      if (!confirmSend) return;
+
+      btn.disabled = true;
+      btn.textContent = "Sending...";
+
+      const now = Date.now();
+      const msg = encodeURIComponent(
+        "Dry Ice Alert - QR code scanned on " + new Date(now).toLocaleString()
+      );
+
+      try {
+        // Send Telegram notification
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`);
+
+        // Record local timestamp
+        localStorage.setItem(STORAGE_KEY, now.toString());
+
+        // Update display and button state
+        btn.textContent = "Thank you!";
+        updateTimeDisplay();
+      } catch {
+        btn.textContent = "Error — Try Again";
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
