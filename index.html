@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dry Ice Notification</title>
   <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden; /* ✅ Prevent scrolling and remove extra space */
+    }
     body {
       font-family: Arial, sans-serif;
       display: flex;
@@ -102,7 +107,7 @@ auth.signInAnonymously().catch(error => {
   alert("Unable to sign in anonymously. Check Firebase configuration.");
 });
 
-// ✅ FIXED FUNCTION: correctly get server time offset
+// ✅ Uses correct method for server time
 async function getServerTime() {
   return new Promise((resolve) => {
     const offsetRef = firebase.database().ref(".info/serverTimeOffset");
@@ -113,7 +118,6 @@ async function getServerTime() {
   });
 }
 
-// Function to get current Pacific Time as formatted string
 function getPacificTimeString() {
   const now = new Date();
   const pacificTime = now.toLocaleString("en-US", { 
@@ -178,7 +182,7 @@ async function initializeCooldown() {
   try {
     const snapshot = await db.ref(DB_PATH).get();
     const lastClick = snapshot.val();
-    const now = await getServerTime(); // ✅ server-synced time
+    const now = await getServerTime();
     remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
 
     updateTimerDisplay();
@@ -196,7 +200,7 @@ button.addEventListener('click', async () => {
   button.disabled = true;
   button.textContent = "Thank you!";
 
-  const now = await getServerTime(); // ✅ server-synced time
+  const now = await getServerTime();
   try {
     await db.ref(DB_PATH).set(now);
   } catch (error) {
@@ -217,7 +221,6 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// --- Auto reload options ---
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     location.reload();
