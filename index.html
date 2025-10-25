@@ -102,12 +102,15 @@ auth.signInAnonymously().catch(error => {
   alert("Unable to sign in anonymously. Check Firebase configuration.");
 });
 
-// ✅ NEW FUNCTION: get Firebase server time offset
+// ✅ FIXED FUNCTION: correctly get server time offset
 async function getServerTime() {
-  const offsetRef = firebase.database().ref(".info/serverTimeOffset");
-  const snap = await offsetRef.get();
-  const offset = snap.val() || 0;
-  return Date.now() + offset;
+  return new Promise((resolve) => {
+    const offsetRef = firebase.database().ref(".info/serverTimeOffset");
+    offsetRef.once("value", snap => {
+      const offset = snap.val() || 0;
+      resolve(Date.now() + offset);
+    });
+  });
 }
 
 // Function to get current Pacific Time as formatted string
@@ -175,7 +178,7 @@ async function initializeCooldown() {
   try {
     const snapshot = await db.ref(DB_PATH).get();
     const lastClick = snapshot.val();
-    const now = await getServerTime(); // ✅ CHANGED (was Date.now())
+    const now = await getServerTime(); // ✅ server-synced time
     remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
 
     updateTimerDisplay();
@@ -193,7 +196,7 @@ button.addEventListener('click', async () => {
   button.disabled = true;
   button.textContent = "Thank you!";
 
-  const now = await getServerTime(); // ✅ CHANGED (was Date.now())
+  const now = await getServerTime(); // ✅ server-synced time
   try {
     await db.ref(DB_PATH).set(now);
   } catch (error) {
