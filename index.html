@@ -4,56 +4,29 @@
   <meta charset="utf-8" />
   <title>Dry Ice Notification</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-
   <style>
     :root { --text-size: 1.6rem; }
-
     body {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background: #f7f7fb;
-      padding: 1rem;
+      display:flex; align-items:center; justify-content:center;
+      height:100vh; margin:0; background:#f7f7fb; padding:1rem;
     }
-
     .card {
-      background: white;
-      padding: 1.75rem;
-      border-radius: 12px;
-      box-shadow: 0 6px 22px rgba(0,0,0,0.08);
-      width: min(640px, 92%);
-      text-align: center;
-      font-size: var(--text-size);
-      line-height: 1.4;
+      background:white; padding:1.75rem; border-radius:12px;
+      box-shadow:0 6px 22px rgba(0,0,0,0.08); width:min(640px,92%);
+      text-align:center; font-size:var(--text-size); line-height:1.4;
     }
-
-    h2 { margin: 0 0 0.25rem 0; font-size: 1.15em; }
-    p { margin: 0.25rem 0 1rem 0; color: #444; font-size: 0.95rem; }
-
+    h2 { margin:0 0 .25rem 0; font-size:1.15em; }
+    p { margin:.25rem 0 1rem 0; color:#444; font-size:.95rem; }
     button {
-      margin-top: 0.5rem;
-      font-size: 1rem;
-      padding: 0.7rem 1.25rem;
-      border-radius: 8px;
-      border: none;
-      background: #0b74f6;
-      color: white;
-      cursor: pointer;
-      transition: transform 0.08s ease, background 0.12s ease;
+      margin-top:.5rem; font-size:1rem; padding:.7rem 1.25rem;
+      border-radius:8px; border:none; background:#0b74f6; color:white;
+      cursor:pointer; transition:transform .08s ease, background .12s ease;
     }
-
-    button:active { transform: scale(0.99); }
-    button:disabled { background: #bfbfc2; cursor: not-allowed; }
-
-    .timestamp { margin-top: 1rem; font-size: 0.95rem; color: #555; }
-
-    @media (max-width:480px) {
-      :root { --text-size: 1.05rem; }
-      .card { padding: 1rem; }
-    }
+    button:active { transform:scale(.99); }
+    button:disabled { background:#bfbfc2; cursor:not-allowed; }
+    .timestamp { margin-top:1rem; font-size:.95rem; color:#555; }
+    @media (max-width:480px) { :root { --text-size:1.05rem; } .card{padding:1rem} }
   </style>
 </head>
 <body>
@@ -66,10 +39,8 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref as dbRef, onValue, set as dbSet, get as dbGet } 
-      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } 
-      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+    import { getDatabase, ref as dbRef, onValue, set as dbSet, get as dbGet } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
@@ -97,135 +68,102 @@
     let displayInterval = null;
     let dbChecked = false;
 
-    function formatTime(ms) {
-      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-      const m = Math.floor(totalSeconds / 60);
-      const s = totalSeconds % 60;
-      return `${m}:${String(s).padStart(2, "0")}`;
+    function formatTime(ms){
+      const totalSeconds = Math.max(0, Math.floor(ms/1000));
+      const m = Math.floor(totalSeconds/60);
+      const s = totalSeconds%60;
+      return `${m}:${String(s).padStart(2,"0")}`;
     }
 
-    function startDisplayUpdater(remoteTimestamp) {
-      if (displayInterval) clearInterval(displayInterval);
-      if (!remoteTimestamp) {
-        lastSentDisplay.textContent = "No notification sent yet.";
-        return;
-      }
-      function updateNow() {
-        const elapsedMs = Date.now() - remoteTimestamp;
-        const secs = Math.floor(elapsedMs / 1000);
-        if (secs < 5) lastSentDisplay.textContent = "Notification just sent.";
-        else if (secs < 60) lastSentDisplay.textContent = `Last sent ${secs}s ago.`;
-        else if (secs < 3600) {
-          const m = Math.floor(secs / 60), s = secs % 60;
-          lastSentDisplay.textContent = `Last sent ${m}m ${s}s ago.`;
-        } else {
-          const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600)/60);
-          lastSentDisplay.textContent = `Last sent ${h}h ${m}m ago.`;
-        }
+    function startDisplayUpdater(remoteTimestamp){
+      if(displayInterval) clearInterval(displayInterval);
+      if(!remoteTimestamp){ lastSentDisplay.textContent="No notification sent yet."; return; }
+      function updateNow(){
+        const elapsedMs = Date.now()-remoteTimestamp;
+        const secs = Math.floor(elapsedMs/1000);
+        if(secs<5) lastSentDisplay.textContent="Notification just sent.";
+        else if(secs<60) lastSentDisplay.textContent=`Last sent ${secs}s ago.`;
+        else if(secs<3600){ const m=Math.floor(secs/60),s=secs%60; lastSentDisplay.textContent=`Last sent ${m}m ${s}s ago.`; }
+        else{ const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60); lastSentDisplay.textContent=`Last sent ${h}h ${m}m ago.`; }
       }
       updateNow();
-      displayInterval = setInterval(updateNow, 1000);
+      displayInterval=setInterval(updateNow,1000);
     }
 
-    function startCountdown(remoteTimestamp) {
-      if (countdownInterval) clearInterval(countdownInterval);
-      if (!remoteTimestamp) {
-        btn.disabled = false;
-        btn.textContent = "Send Notification";
-        return;
-      }
-      const elapsed = Date.now() - remoteTimestamp;
-      const remaining = FIVE_MINUTES - elapsed;
-      if (remaining <= 0) {
-        btn.disabled = false;
-        btn.textContent = "Send Notification";
-        return;
-      }
-      btn.disabled = true;
-      btn.textContent = `Thank you! — available in ${formatTime(remaining)}`;
-      countdownInterval = setInterval(() => {
-        const nowElapsed = Date.now() - remoteTimestamp;
-        const nowRemaining = FIVE_MINUTES - nowElapsed;
-        if (nowRemaining <= 0) {
-          clearInterval(countdownInterval);
-          btn.disabled = false;
-          btn.textContent = "Send Notification";
-        } else {
-          btn.textContent = `Thank you! — available in ${formatTime(nowRemaining)}`;
-        }
-      }, 1000);
+    function startCountdown(remoteTimestamp){
+      if(countdownInterval) clearInterval(countdownInterval);
+      if(!remoteTimestamp){ btn.disabled=false; btn.textContent="Send Notification"; return; }
+      const elapsed=Date.now()-remoteTimestamp;
+      const remaining=FIVE_MINUTES-elapsed;
+      if(remaining<=0){ btn.disabled=false; btn.textContent="Send Notification"; return; }
+      btn.disabled=true; btn.textContent=`Thank you! — available in ${formatTime(remaining)}`;
+      countdownInterval=setInterval(()=>{
+        const nowElapsed=Date.now()-remoteTimestamp;
+        const nowRemaining=FIVE_MINUTES-nowElapsed;
+        if(nowRemaining<=0){ clearInterval(countdownInterval); btn.disabled=false; btn.textContent="Send Notification"; }
+        else btn.textContent=`Thank you! — available in ${formatTime(nowRemaining)}`;
+      },1000);
     }
 
-    function setupDatabaseListener() {
-      const lastSentRef = dbRef(db, "dryice/lastSent");
-
-      onValue(lastSentRef, snapshot => {
-        dbChecked = true;
+    function setupDatabaseListener(){
+      const lastSentRef = dbRef(db,"dryice/lastSent");
+      onValue(lastSentRef, snapshot=>{
+        dbChecked=true;
         const val = snapshot.val();
-        const remoteTimestamp = typeof val === "number" ? val : (val ? Number(val) : null);
+        const remoteTimestamp = typeof val==="number"?val:(val?Number(val):null);
         startDisplayUpdater(remoteTimestamp);
         startCountdown(remoteTimestamp);
-      }, err => {
-        console.error("Firebase onValue error:", err);
-        lastSentDisplay.textContent = "Status unavailable (offline).";
-        dbChecked = true;
-        btn.disabled = false;
-        btn.textContent = "Send Notification";
+      }, err=>{
+        console.error("Firebase onValue error:",err);
+        lastSentDisplay.textContent="Status unavailable (offline).";
+        dbChecked=true; btn.disabled=false; btn.textContent="Send Notification";
       });
     }
 
-    signInAnonymously(auth).catch(err => console.error("Anonymous sign-in failed:", err));
+    signInAnonymously(auth).catch(err=>console.error("Anonymous sign-in failed:",err));
 
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Wait for auth before reading DB
+    onAuthStateChanged(auth, async (user)=>{
+      if(user){
         setupDatabaseListener();
-
-        // Seed initial UI immediately
-        try {
-          const lastSentRef = dbRef(db, "dryice/lastSent");
-          const snap = await dbGet(lastSentRef);
-          const val = snap.exists() ? snap.val() : null;
-          const remoteTimestamp = typeof val === "number" ? val : (val ? Number(val) : null);
-          dbChecked = true;
+        try{
+          const lastSentRef=dbRef(db,"dryice/lastSent");
+          const snap=await dbGet(lastSentRef);
+          const val = snap.exists()?snap.val():null;
+          const remoteTimestamp = typeof val==="number"?val:(val?Number(val):null);
+          dbChecked=true;
           startDisplayUpdater(remoteTimestamp);
           startCountdown(remoteTimestamp);
-        } catch (e) {
-          console.warn("Initial DB read failed:", e);
-          dbChecked = true;
-          lastSentDisplay.textContent = "Status unavailable (offline).";
-          btn.disabled = false;
-          btn.textContent = "Send Notification";
+        } catch(e){
+          console.warn("Initial DB read failed:",e);
+          dbChecked=true;
+          lastSentDisplay.textContent="Status unavailable (offline).";
+          btn.disabled=false; btn.textContent="Send Notification";
         }
       }
     });
 
-    btn.addEventListener("click", async (event) => {
-      if (!dbChecked) { alert("Please wait, still checking server status..."); return; }
-      if (!event.isTrusted) { console.warn("Blocked non-human click attempt."); return; }
-      if (!confirm("Are you sure you want to send a dry ice alert?")) return;
+    btn.addEventListener("click", async (event)=>{
+      if(!dbChecked){ alert("Please wait, still checking server status..."); return; }
+      if(!event.isTrusted){ console.warn("Blocked non-human click attempt."); return; }
+      if(!confirm("Are you sure you want to send a dry ice alert?")) return;
 
-      btn.disabled = true;
-      btn.textContent = "Sending...";
+      btn.disabled=true; btn.textContent="Sending...";
+      const now=Date.now();
+      const msgText=`Dry Ice Alert - QR code scanned on ${new Date(now).toLocaleString()}`;
 
-      const now = Date.now();
-      const msgText = `Dry Ice Alert - QR code scanned on ${new Date(now).toLocaleString()}`;
-
-      try {
+      try{
+        // Send Telegram
         const tgResp = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msgText)}`);
-        if (!tgResp.ok) {
-          const errorBody = await tgResp.json();
-          throw new Error(`Telegram API failed: ${errorBody.description || 'Unknown error'}`);
-        }
-        const lastSentRef = dbRef(db, "dryice/lastSent");
+        if(!tgResp.ok){ const errBody=await tgResp.json(); throw new Error(`Telegram API failed: ${errBody.description||'Unknown error'}`); }
+
+        // Write timestamp (will fail if not within ±2 minutes of server time)
+        const lastSentRef=dbRef(db,"dryice/lastSent");
         await dbSet(lastSentRef, now);
-      } catch (err) {
-        console.error("Notification failed:", err);
-        btn.textContent = "Error — Try Again";
-        btn.disabled = false;
+      } catch(err){
+        console.error("Notification failed:",err);
+        btn.textContent="Error — Try Again"; btn.disabled=false;
       }
     });
-
   </script>
 </body>
 </html>
