@@ -68,122 +68,134 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
-  const TELEGRAM_BOT_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
-  const TELEGRAM_CHAT_ID = "8399286438";
-  const firebaseConfig = {
-    apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
-    authDomain: "dryicenotif.firebaseapp.com",
-    databaseURL: "https://dryicenotif-default-rtdb.firebaseio.com",
-    projectId: "dryicenotif",
-    storageBucket: "dryicenotif.firebasestorage.app",
-    messagingSenderId: "217680440618",
-    appId: "1:217680440618:web:c07ecbe063e68ea49bc253",
-    measurementId: "G-GEJ4RCBGF3"
-  };
-  const COOLDOWN_HOURS = 12;
+const TELEGRAM_BOT_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
+const TELEGRAM_CHAT_ID = "8399286438";
+const firebaseConfig = {
+  apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
+  authDomain: "dryicenotif.firebaseapp.com",
+  databaseURL: "https://dryicenotif-default-rtdb.firebaseio.com",
+  projectId: "dryicenotif",
+  storageBucket: "dryicenotif.firebasestorage.app",
+  messagingSenderId: "217680440618",
+  appId: "1:217680440618:web:c07ecbe063e68ea49bc253",
+  measurementId: "G-GEJ4RCBGF3"
+};
+const COOLDOWN_HOURS = 12;
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  const auth = firebase.auth();
-  const button = document.getElementById('sendButton');
-  const timerDiv = document.getElementById('timer');
-  const testCheckbox = document.getElementById('testCooldown');
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+const button = document.getElementById('sendButton');
+const timerDiv = document.getElementById('timer');
+const testCheckbox = document.getElementById('testCooldown');
 
-  const MAIN_COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
-  const TEST_COOLDOWN_MS = 5000;
-  const DB_PATH = "dryice";
+const MAIN_COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
+const TEST_COOLDOWN_MS = 5000;
+const DB_PATH = "dryice";
 
-  let remainingMs = 0; // Tracks remaining cooldown locally
-  let countdownInterval;
+let remainingMs = 0;
+let countdownInterval;
 
-  auth.signInAnonymously().catch(error => {
-    console.error("Auth error:", error);
-    alert("Unable to sign in anonymously. Check Firebase configuration.");
-  });
+auth.signInAnonymously().catch(error => {
+  console.error("Auth error:", error);
+  alert("Unable to sign in anonymously. Check Firebase configuration.");
+});
 
-  async function sendTelegramMessage() {
-    const message = encodeURIComponent("Button was clicked!");
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${message}`;
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      if (!data.ok) throw new Error(data.description);
-    } catch (error) {
-      console.error("Telegram send error:", error);
-      alert("Failed to send message. Check console for details.");
-    }
+async function sendTelegramMessage() {
+  const message = encodeURIComponent("Button was clicked!");
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${message}`;
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.description);
+  } catch (error) {
+    console.error("Telegram send error:", error);
+    alert("Failed to send message. Check console for details.");
   }
+}
 
-  function getCurrentCooldownMs() {
-    return testCheckbox.checked ? TEST_COOLDOWN_MS : MAIN_COOLDOWN_MS;
+function getCurrentCooldownMs() {
+  return testCheckbox.checked ? TEST_COOLDOWN_MS : MAIN_COOLDOWN_MS;
+}
+
+function updateTimerDisplay() {
+  if (remainingMs <= 0) {
+    button.disabled = false;
+    button.textContent = "Send Message";
+    timerDiv.textContent = "";
+  } else {
+    const hours = Math.floor(remainingMs / 3600000);
+    const minutes = Math.floor((remainingMs % 3600000) / 60000);
+    const seconds = Math.floor((remainingMs % 60000) / 1000);
+    timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
   }
+}
 
-  function updateTimerDisplay() {
-    if (remainingMs <= 0) {
-      button.disabled = false;
-      button.textContent = "Send Message";
-      timerDiv.textContent = "";
-    } else {
-      const hours = Math.floor(remainingMs / 3600000);
-      const minutes = Math.floor((remainingMs % 3600000) / 60000);
-      const seconds = Math.floor((remainingMs % 60000) / 1000);
-      timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
-    }
-  }
+function startCountdown() {
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    remainingMs -= 1000;
+    if (remainingMs < 0) remainingMs = 0;
+    updateTimerDisplay();
+  }, 1000);
+  updateTimerDisplay();
+}
 
-  function startCountdown() {
-    clearInterval(countdownInterval);
-    countdownInterval = setInterval(() => {
-      remainingMs -= 1000;
-      if (remainingMs < 0) remainingMs = 0;
-      updateTimerDisplay();
-    }, 1000);
-    updateTimerDisplay(); // Update immediately
-  }
+async function initializeCooldown() {
+  const snapshot = await db.ref(DB_PATH).get();
+  const lastClick = snapshot.val();
+  const now = Date.now();
+  remainingMs = lastClick ? (lastClick + getCurrentCooldownMs() - now) : 0;
 
-  async function initializeCooldown() {
-    const snapshot = await db.ref(DB_PATH).get();
-    const lastClick = snapshot.val();
-    const now = Date.now();
-    const cooldownMs = getCurrentCooldownMs();
-    remainingMs = lastClick ? (lastClick + cooldownMs - now) : 0;
-
-    if (remainingMs > 0) {
-      button.disabled = true;
-      button.textContent = "Thank you!";
-    } else {
-      button.disabled = false;
-      button.textContent = "Send Message";
-      remainingMs = 0; // ensure non-negative
-    }
-
-    startCountdown();
-  }
-
-  button.addEventListener('click', async () => {
+  if (remainingMs > 0) {
     button.disabled = true;
     button.textContent = "Thank you!";
+  } else {
+    button.disabled = false;
+    button.textContent = "Send Message";
+    remainingMs = 0;
+  }
 
+  startCountdown();
+}
+
+// **Reset cooldown in database if test checkbox is checked**
+testCheckbox.addEventListener('change', async () => {
+  if (testCheckbox.checked) {
     const now = Date.now();
     try {
       await db.ref(DB_PATH).set(now);
     } catch (error) {
-      console.error("Cannot write: cooldown active", error);
-      alert("Button cannot be pressed yet. Please wait until cooldown is over.");
-      return;
+      console.error("Error resetting cooldown for test:", error);
     }
+  }
+  initializeCooldown();
+});
 
-    remainingMs = getCurrentCooldownMs();
-    startCountdown();
+button.addEventListener('click', async () => {
+  button.disabled = true;
+  button.textContent = "Thank you!";
 
-    await sendTelegramMessage();
-  });
+  const now = Date.now();
+  try {
+    await db.ref(DB_PATH).set(now);
+  } catch (error) {
+    console.error("Cannot write: cooldown active", error);
+    alert("Button cannot be pressed yet. Please wait until cooldown is over.");
+    return;
+  }
 
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      initializeCooldown();
-    }
-  });
+  remainingMs = getCurrentCooldownMs();
+  startCountdown();
+
+  await sendTelegramMessage();
+});
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    initializeCooldown();
+  }
+});
 </script>
 </body>
 </html>
