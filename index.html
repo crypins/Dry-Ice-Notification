@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telegram Button Box</title>
+  <title>Dry Ice Notification</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -49,9 +49,9 @@
 </head>
 <body>
   <div class="box">
-    <h2>Title Here</h2>
-    <p>Subtitle Here</p>
-    <button id="sendButton">Send Message</button>
+    <h2>Dry Ice Alert</h2>
+    <p>Please click the button below to send a notification. If the site isn't working, send an email to clyde.rypins@berkeley.edu. A cooldown is in place to prevent overuse.</p>
+    <button id="sendButton">Notify!</button>
     <div class="timer" id="timer"></div>
 
     <!-- TESTING BLOCK: Can be removed after testing -->
@@ -67,113 +67,116 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-  <script>
-    // ----------- USER INPUT REQUIRED ----------------
-    const TELEGRAM_BOT_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
-    const TELEGRAM_CHAT_ID = "8399286438";
-    const firebaseConfig = {
-      apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
-      authDomain: "dryicenotif.firebaseapp.com",
-      databaseURL: "https://dryicenotif-default-rtdb.firebaseio.com",
-      projectId: "dryicenotif",
-      storageBucket: "dryicenotif.firebasestorage.app",
-      messagingSenderId: "217680440618",
-      appId: "1:217680440618:web:c07ecbe063e68ea49bc253",
-      measurementId: "G-GEJ4RCBGF3"
+<script>
+  // ----------- USER INPUT REQUIRED ----------------
+  const TELEGRAM_BOT_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
+  const TELEGRAM_CHAT_ID = "8399286438";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
+    authDomain: "dryicenotif.firebaseapp.com",
+    databaseURL: "https://dryicenotif-default-rtdb.firebaseio.com",
+    projectId: "dryicenotif",
+    storageBucket: "dryicenotif.firebasestorage.app",
+    messagingSenderId: "217680440618",
+    appId: "1:217680440618:web:c07ecbe063e68ea49bc253",
+    measurementId: "G-GEJ4RCBGF3"
   };
-    const COOLDOWN_HOURS = 12; // main cooldown
-    // -----------------------------------------------
+  const COOLDOWN_HOURS = 12; // main cooldown
+  // -----------------------------------------------
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const auth = firebase.auth();
-    const button = document.getElementById('sendButton');
-    const timerDiv = document.getElementById('timer');
-    const testCheckbox = document.getElementById('testCooldown');
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const auth = firebase.auth();
+  const button = document.getElementById('sendButton');
+  const timerDiv = document.getElementById('timer');
+  const testCheckbox = document.getElementById('testCooldown');
 
-    const MAIN_COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
-    const TEST_COOLDOWN_MS = 5000; // 5 seconds for testing
-    const DB_PATH = "dryice";
+  const MAIN_COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
+  const TEST_COOLDOWN_MS = 5000; // 5 seconds for testing
+  const DB_PATH = "dryice";
 
-    // Anonymous authentication
-    auth.signInAnonymously().catch(error => {
-      console.error("Auth error:", error);
-      alert("Unable to sign in anonymously. Check Firebase configuration.");
-    });
+  // Anonymous authentication
+  auth.signInAnonymously().catch(error => {
+    console.error("Auth error:", error);
+    alert("Unable to sign in anonymously. Check Firebase configuration.");
+  });
 
-    async function sendTelegramMessage() {
-      const message = encodeURIComponent("Button was clicked!");
-      const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${message}`;
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        if (!data.ok) throw new Error(data.description);
-      } catch (error) {
-        console.error("Telegram send error:", error);
-        alert("Failed to send message. Check console for details.");
-      }
+  async function sendTelegramMessage() {
+    const message = encodeURIComponent("Button was clicked!");
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${message}`;
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.description);
+    } catch (error) {
+      console.error("Telegram send error:", error);
+      alert("Failed to send message. Check console for details.");
     }
+  }
 
-    function getCurrentCooldownMs() {
-      return testCheckbox.checked ? TEST_COOLDOWN_MS : MAIN_COOLDOWN_MS;
+  function getCurrentCooldownMs() {
+    return testCheckbox.checked ? TEST_COOLDOWN_MS : MAIN_COOLDOWN_MS;
+  }
+
+  function updateTimer(remainingMs) {
+    if (remainingMs <= 0) {
+      button.disabled = false;
+      button.textContent = "Send Message";
+      timerDiv.textContent = "";
+      return;
     }
+    const hours = Math.floor(remainingMs / 3600000);
+    const minutes = Math.floor((remainingMs % 3600000) / 60000);
+    const seconds = Math.floor((remainingMs % 60000) / 1000);
+    timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
+  }
 
-    function updateTimer(remainingMs) {
-      if (remainingMs <= 0) {
-        button.disabled = false;
-        button.textContent = "Send Message";
-        timerDiv.textContent = "";
-        return;
-      }
-      const hours = Math.floor(remainingMs / 3600000);
-      const minutes = Math.floor((remainingMs % 3600000) / 60000);
-      const seconds = Math.floor((remainingMs % 60000) / 1000);
-      timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
-    }
+  async function checkCooldown() {
+    const snapshot = await db.ref(DB_PATH).get();
+    const lastClick = snapshot.val();
+    const now = Date.now();
+    const cooldownMs = getCurrentCooldownMs();
+    let remaining = lastClick ? (lastClick + cooldownMs - now) : 0;
 
-    async function checkCooldown() {
-      const snapshot = await db.ref(DB_PATH).get();
-      const lastClick = snapshot.val();
-      const now = Date.now();
-      const cooldownMs = getCurrentCooldownMs();
-      let remaining = lastClick ? (lastClick + cooldownMs - now) : 0;
-
-      if (remaining > 0) {
-        button.disabled = true;
-        button.textContent = "Thank you!";
-      } else {
-        button.disabled = false;
-        button.textContent = "Send Message";
-      }
-
-      setInterval(() => {
-        const snapshot = db.ref(DB_PATH).get().then(snap => {
-          const lastClick = snap.val();
-          const remainingMs = lastClick ? (lastClick + getCurrentCooldownMs() - Date.now()) : 0;
-          updateTimer(remainingMs);
-        });
-      }, 1000);
-    }
-
-    button.addEventListener('click', async () => {
+    if (remaining > 0) {
       button.disabled = true;
       button.textContent = "Thank you!";
+    } else {
+      button.disabled = false;
+      button.textContent = "Send Message";
+    }
 
-      await sendTelegramMessage();
+    setInterval(() => {
+      const snapshot = db.ref(DB_PATH).get().then(snap => {
+        const lastClick = snap.val();
+        const remainingMs = lastClick ? (lastClick + getCurrentCooldownMs() - Date.now()) : 0;
+        updateTimer(remainingMs);
+      });
+    }, 1000);
+  }
 
-      try {
-        await db.ref(DB_PATH).set(Date.now());
-      } catch (error) {
-        console.error("Cannot write: cooldown active", error);
-        alert("Button cannot be pressed yet. Please wait until cooldown is over.");
-      }
-    });
+  // ----------------- BUTTON CLICK -----------------
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    button.textContent = "Thank you!";
 
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        checkCooldown();
-      }
-    });
-  </script>
+    // Start cooldown immediately by writing timestamp to Firebase
+    try {
+      await db.ref(DB_PATH).set(Date.now());
+    } catch (error) {
+      console.error("Cannot write: cooldown active", error);
+      alert("Button cannot be pressed yet. Please wait until cooldown is over.");
+    }
+
+    // Then send Telegram message
+    await sendTelegramMessage();
+  });
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      checkCooldown();
+    }
+  });
+</script>
 </body>
 </html>
