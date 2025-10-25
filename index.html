@@ -86,8 +86,19 @@ auth.signInAnonymously().catch(error => {
   alert("Unable to sign in anonymously. Check Firebase configuration.");
 });
 
+// Function to get current Pacific Time as formatted string
+function getPacificTimeString() {
+  const now = new Date();
+  const pacificTime = now.toLocaleString("en-US", { 
+    timeZone: "America/Los_Angeles",
+    hour12: false
+  });
+  return pacificTime;
+}
+
 async function sendTelegramMessage() {
-  const message = encodeURIComponent("Button was clicked!");
+  const timestamp = getPacificTimeString();
+  const message = encodeURIComponent(`Button was clicked at Pacific Time: ${timestamp}`);
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${message}`;
   try {
     const response = await fetch(url);
@@ -117,7 +128,6 @@ function updateTimerDisplay() {
 function startCountdown() {
   clearInterval(countdownInterval);
 
-  // Only start countdown if there is remaining time
   if (remainingMs <= 0) {
     updateTimerDisplay();
     return;
