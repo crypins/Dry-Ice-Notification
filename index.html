@@ -38,13 +38,6 @@
   </div>
 
   <script type="module">
-    // ---------- IMPORTS MUST BE AT THE TOP ----------
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref as dbRef, onValue, set as dbSet, get as dbGet } 
-      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-
-
     // ---------- CONFIGURATION ----------
     const firebaseConfig = {
       apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
@@ -61,31 +54,31 @@
     const TELEGRAM_CHAT_ID = "8399286438";
     const FIVE_MINUTES = 5 * 60 * 1000;
 
-    // ---------- INITIALIZE SERVICES (App must be first) ----------
+    // 💡 FIX: Consolidated and placed all imports at the top.
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref as dbRef, onValue, set as dbSet, get as dbGet } 
+      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+    
+    // 💡 FIX: Corrected Initialization Order (app must be defined first).
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
-    const lastSentRef = dbRef(db, "dryice/lastSent");
-
-    // ---------- AUTHENTICATION ----------
+    
     signInAnonymously(auth).catch((err) => console.error("Anon sign-in failed:", err));
     onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // user.uid available, DB writes allowed (per rules)
+    if (user) {
+      // user.uid available, DB writes allowed (per rules)
       }
     });
     
+    const lastSentRef = dbRef(db, "dryice/lastSent");
 
-    // ---------- UI ELEMENTS AND STATE ----------
     const btn = document.getElementById("notifyBtn");
     const lastSentDisplay = document.getElementById("lastSentDisplay");
 
     let countdownInterval = null;
     let displayInterval = null;
-    let dbChecked = false; // Initial state
-
-
-    // ---------- HELPER FUNCTIONS ----------
 
     function formatTime(ms) {
       const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -146,9 +139,9 @@
       }, 1000);
     }
 
-    // ---------- DATABASE READ/LISTENERS ----------
+    // ---------- Ensure DB checked before enabling ----------
+    let dbChecked = false;
 
-    // 1. Realtime Listener (Updates UI if data changes elsewhere)
     onValue(lastSentRef, (snapshot) => {
       dbChecked = true;
       const val = snapshot.val();
@@ -163,8 +156,6 @@
       btn.textContent = "Send Notification";
     });
 
-
-    // 2. Button Click Handler (Performs Telegram fetch and DB write)
     btn.addEventListener("click", async (event) => {
       if (!dbChecked) {
         alert("Please wait, still checking server status...");
@@ -175,24 +166,35 @@
         return;
       }
       if (!confirm("Are you sure you want to send a dry ice alert?")) return;
+      
       btn.disabled = true;
       btn.textContent = "Sending...";
+      
       const now = Date.now();
       const msgText = `Dry Ice Alert - QR code scanned on ${new Date(now).toLocaleString()}`;
+      
       try {
-        // Note: Fetch result should be checked to ensure Telegram succeeded.
+        // 1. Send Telegram Message
         const tgResp = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msgText)}`);
         
-        // Write to database (Requires successful anonymous sign-in)
+        // 💡 FIX: Check Telegram API response status. If it failed, throw an error to be caught below.
+        if (!tgResp.ok) {
+          const errorBody = await tgResp.json();
+          console.error("Telegram API response error:", errorBody);
+          throw new Error(`Telegram API failed with status ${tgResp.status}: ${errorBody.description || 'Unknown error'}`);
+        }
+
+        // 2. Update Database (only runs if Telegram message sent successfully)
         await dbSet(lastSentRef, now);
+        
       } catch (err) {
-        console.error("Send or DB update failed:", err);
+        // FAILURE: Handles network errors, failed DB writes, or Telegram API errors.
+        console.error("Notification failed:", err);
         btn.textContent = "Error — Try Again";
         btn.disabled = false;
       }
     });
 
-    // 3. Initial UI Seed (Ensures immediate display before onValue fires)
     (async function seedInitialUI() {
       try {
         const snap = await dbGet(lastSentRef);
