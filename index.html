@@ -56,3 +56,148 @@
     }
 
     button:disabled {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+
+    .timestamp {
+      margin-top: 1em;
+      font-size: 1rem;
+      color: #555;
+    }
+
+    @media (max-width: 480px) {
+      :root {
+        --text-size: 0.95rem;
+      }
+      .card {
+        padding: 1.5em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Dry Ice Notification</h2>
+    <p>Please click the button below to send a notification about low dry ice levels.</p>
+    <button id="notifyBtn">Send Notification</button>
+    <div id="lastSentDisplay" class="timestamp"></div>
+  </div>
+
+  <script>
+    // === Configuration ===
+    const token = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
+    const chatId = "8399286438";
+    const STORAGE_KEY = "dryice_alert_last_sent_local";
+    const FIVE_MINUTES = 5 * 60 * 1000;
+
+    const btn = document.getElementById("notifyBtn");
+    const lastSentDisplay = document.getElementById("lastSentDisplay");
+
+    // 🕒 Format milliseconds into mm:ss
+    function formatTime(ms) {
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    }
+
+    // 🕒 Update live "time since last notification"
+    function updateTimeDisplay() {
+      const lastSent = localStorage.getItem(STORAGE_KEY);
+      if (!lastSent) {
+        lastSentDisplay.textContent = "No notification sent yet.";
+        return;
+      }
+
+      const elapsedMs = Date.now() - parseInt(lastSent);
+      const seconds = Math.floor(elapsedMs / 1000);
+
+      if (seconds < 5) {
+        lastSentDisplay.textContent = "Notification just sent.";
+      } else if (seconds < 60) {
+        lastSentDisplay.textContent = `Last notification sent ${seconds} seconds ago.`;
+      } else if (seconds < 3600) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        lastSentDisplay.textContent = `Last notification sent ${mins} min ${secs}s ago.`;
+      } else {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        lastSentDisplay.textContent = `Last notification sent ${hrs}h ${mins}m ago.`;
+      }
+    }
+
+    // ⚙️ Manage button state (disable/re-enable and countdown)
+    function handleButtonState() {
+      const lastSent = localStorage.getItem(STORAGE_KEY);
+      if (!lastSent) {
+        btn.disabled = false;
+        btn.textContent = "Send Notification";
+        return;
+      }
+
+      const elapsed = Date.now() - parseInt(lastSent);
+
+      if (elapsed < FIVE_MINUTES) {
+        btn.disabled = true;
+        const remaining = FIVE_MINUTES - elapsed;
+        btn.textContent = `Thank you! — available in ${formatTime(remaining)}`;
+
+        // Live countdown
+        const countdown = setInterval(() => {
+          const elapsedNow = Date.now() - parseInt(lastSent);
+          const remainingNow = FIVE_MINUTES - elapsedNow;
+          if (remainingNow <= 0) {
+            clearInterval(countdown);
+            btn.disabled = false;
+            btn.textContent = "Send Notification";
+          } else {
+            btn.textContent = `Thank you! — available in ${formatTime(remainingNow)}`;
+          }
+        }, 1000);
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Send Notification";
+      }
+    }
+
+    // === Initialize ===
+    updateTimeDisplay();
+    handleButtonState();
+    setInterval(updateTimeDisplay, 1000); // Live per second
+
+    // === Click handler ===
+    btn.addEventListener("click", async (event) => {
+      // 🧠 Block programmatic clicks
+      if (!event.isTrusted) {
+        console.warn("Blocked non-human click attempt.");
+        return;
+      }
+
+      // Always confirm
+      const confirmSend = confirm("Are you sure you want to send a dry ice alert?");
+      if (!confirmSend) return;
+
+      btn.disabled = true;
+      btn.textContent = "Sending...";
+
+      const now = Date.now();
+      const msg = encodeURIComponent(
+        "Dry Ice Alert - QR code scanned on " + new Date(now).toLocaleString()
+      );
+
+      try {
+        // Send Telegram message
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`);
+        localStorage.setItem(STORAGE_KEY, now.toString());
+        updateTimeDisplay();
+        handleButtonState();
+      } catch {
+        btn.textContent = "Error — Try Again";
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
