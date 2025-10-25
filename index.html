@@ -40,11 +40,6 @@
       font-size: 0.9rem;
       color: #555;
     }
-    .test-block {
-      margin-top: 1rem;
-      font-size: 0.9rem;
-      color: #333;
-    }
   </style>
 </head>
 <body>
@@ -53,13 +48,6 @@
     <p>Please click the button below to send a notification. If the site isn't working, send an email to clyde.rypins@berkeley.edu. A cooldown is in place to prevent overuse.</p>
     <button id="sendButton">Notify!</button>
     <div class="timer" id="timer"></div>
-
-    <!-- TESTING BLOCK: Can be removed after testing -->
-    <div class="test-block">
-      <label>
-        <input type="checkbox" id="testCooldown"> Use 5s cooldown (test only)
-      </label>
-    </div>
   </div>
 
   <!-- Firebase SDKs -->
@@ -87,10 +75,8 @@ const db = firebase.database();
 const auth = firebase.auth();
 const button = document.getElementById('sendButton');
 const timerDiv = document.getElementById('timer');
-const testCheckbox = document.getElementById('testCooldown');
 
 const MAIN_COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
-const TEST_COOLDOWN_MS = 5000;
 const DB_PATH = "dryice";
 
 let remainingMs = 0;
@@ -112,10 +98,6 @@ async function sendTelegramMessage() {
     console.error("Telegram send error:", error);
     alert("Failed to send message. Check console for details.");
   }
-}
-
-function getCurrentCooldownMs() {
-  return testCheckbox.checked ? TEST_COOLDOWN_MS : MAIN_COOLDOWN_MS;
 }
 
 function updateTimerDisplay() {
@@ -145,7 +127,7 @@ async function initializeCooldown() {
   const snapshot = await db.ref(DB_PATH).get();
   const lastClick = snapshot.val();
   const now = Date.now();
-  remainingMs = lastClick ? (lastClick + getCurrentCooldownMs() - now) : 0;
+  remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
 
   if (remainingMs > 0) {
     button.disabled = true;
@@ -158,19 +140,6 @@ async function initializeCooldown() {
 
   startCountdown();
 }
-
-// **Reset cooldown in database if test checkbox is checked**
-testCheckbox.addEventListener('change', async () => {
-  if (testCheckbox.checked) {
-    const now = Date.now();
-    try {
-      await db.ref(DB_PATH).set(now);
-    } catch (error) {
-      console.error("Error resetting cooldown for test:", error);
-    }
-  }
-  initializeCooldown();
-});
 
 button.addEventListener('click', async () => {
   button.disabled = true;
@@ -185,7 +154,7 @@ button.addEventListener('click', async () => {
     return;
   }
 
-  remainingMs = getCurrentCooldownMs();
+  remainingMs = MAIN_COOLDOWN_MS;
   startCountdown();
 
   await sendTelegramMessage();
