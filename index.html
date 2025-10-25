@@ -90,4 +90,75 @@ async function sendTelegramMessage() {
   const message = encodeURIComponent("Button was clicked!");
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${message}`;
   try {
-    const response = await
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.description);
+  } catch (error) {
+    console.error("Telegram send error:", error);
+    alert("Failed to send message. Check console for details.");
+  }
+}
+
+function updateTimerDisplay() {
+  if (remainingMs <= 0) {
+    button.disabled = false;
+    button.textContent = "Notify!";
+    timerDiv.textContent = "";
+  } else {
+    const hours = Math.floor(remainingMs / 3600000);
+    const minutes = Math.floor((remainingMs % 3600000) / 60000);
+    const seconds = Math.floor((remainingMs % 60000) / 1000);
+    button.disabled = true;
+    button.textContent = "Thank you!";
+    timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
+  }
+}
+
+function startCountdown() {
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    remainingMs -= 1000;
+    if (remainingMs < 0) remainingMs = 0;
+    updateTimerDisplay();
+  }, 1000);
+  updateTimerDisplay();
+}
+
+async function initializeCooldown() {
+  const snapshot = await db.ref(DB_PATH).get();
+  const lastClick = snapshot.val();
+  const now = Date.now();
+  remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
+
+  // FIX: Update button state immediately before starting countdown
+  updateTimerDisplay();
+  startCountdown();
+}
+
+button.addEventListener('click', async () => {
+  button.disabled = true;
+  button.textContent = "Thank you!";
+
+  const now = Date.now();
+  try {
+    await db.ref(DB_PATH).set(now);
+  } catch (error) {
+    console.error("Cannot write: cooldown active", error);
+    alert("Button cannot be pressed yet. Please wait until cooldown is over.");
+    return;
+  }
+
+  remainingMs = MAIN_COOLDOWN_MS;
+  startCountdown();
+
+  await sendTelegramMessage();
+});
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    initializeCooldown();
+  }
+});
+</script>
+</body>
+</html>
