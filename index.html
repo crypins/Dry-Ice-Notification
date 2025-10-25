@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref as dbRef, onValue, set as dbSet } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getDatabase, ref as dbRef, onValue, set as dbSet, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
     const firebaseConfig = {
@@ -82,9 +82,9 @@
 
       function tick() {
         const elapsed = Date.now() - remoteTimestamp;
-        if(elapsed<5000) lastSentDisplay.textContent="Notification just sent.";
-        else if(elapsed<60000) lastSentDisplay.textContent=`Last sent ${Math.floor(elapsed/1000)}s ago.`;
-        else if(elapsed<3600000){
+        if(elapsed < 5000) lastSentDisplay.textContent="Notification just sent.";
+        else if(elapsed < 60000) lastSentDisplay.textContent=`Last sent ${Math.floor(elapsed/1000)}s ago.`;
+        else if(elapsed < 3600000){
           const m = Math.floor(elapsed/60000);
           const s = Math.floor((elapsed%60000)/1000);
           lastSentDisplay.textContent=`Last sent ${m}m ${s}s ago.`;
@@ -152,8 +152,7 @@
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       btn.textContent = "Sending...";
-      const now = Date.now();
-      const msgText = `Dry Ice Alert - QR code scanned on ${new Date(now).toLocaleString()}`;
+      const msgText = `Dry Ice Alert - QR code scanned on ${new Date().toLocaleString()}`;
 
       try {
         // Send Telegram
@@ -163,9 +162,9 @@
           throw new Error(body.description || 'Telegram API error');
         }
 
-        // Write timestamp
+        // Write Firebase Server Timestamp
         const lastSentRef = dbRef(db,"dryice/lastSent");
-        await dbSet(lastSentRef, now); // Firebase will enforce ±2 min
+        await dbSet(lastSentRef, serverTimestamp());
       } catch(err){
         console.error("Notification failed:", err);
         lastSentDisplay.textContent=`Send failed — ${err.message || "check server time/rules"}`;
