@@ -102,7 +102,10 @@ async function sendTelegramMessage() {
 function updateTimerDisplay() {
   if (remainingMs <= 0) {
     button.disabled = false;
-    button.textContent = "Send Message";
+    // Keep original "Notify!" text unless the user just clicked
+    if (button.textContent !== "Thank you!") {
+      button.textContent = "Notify!";
+    }
     timerDiv.textContent = "";
   } else {
     const hours = Math.floor(remainingMs / 3600000);
@@ -133,7 +136,7 @@ async function initializeCooldown() {
     button.textContent = "Thank you!";
   } else {
     button.disabled = false;
-    button.textContent = "Send Message";
+    button.textContent = "Notify!";
     remainingMs = 0;
   }
 
