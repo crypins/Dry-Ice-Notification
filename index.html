@@ -186,6 +186,11 @@ auth.onAuthStateChanged(user => {
     initializeCooldown(); // enables the button only if no cooldown is active
   }
 });
+  document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    location.reload();
+  }
+});
 </script>
 </body>
 </html>
