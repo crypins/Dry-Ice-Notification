@@ -30,25 +30,10 @@
       border-radius: 5px;
       background-color: #007bff;
       color: white;
-      position: relative;
     }
     button:disabled {
       background-color: grey;
       cursor: not-allowed;
-    }
-    .spinner {
-      display: inline-block;
-      width: 1em;
-      height: 1em;
-      border: 2px solid white;
-      border-top-color: transparent;
-      border-radius: 50%;
-      margin-left: 8px;
-      vertical-align: middle;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
     }
     .timer {
       margin-top: 0.5rem;
@@ -61,7 +46,7 @@
   <div class="box">
     <h2>Dry Ice Alert</h2>
     <p>Please click the button below to send a notification. If the site isn't working, please send an email to clyde.rypins@berkeley.edu</p>
-    <button id="sendButton" disabled>Loading<span class="spinner" id="loadingSpinner"></span></button>
+    <button id="sendButton" disabled>Loading...</button>
     <div class="timer" id="timer"></div>
   </div>
 
@@ -89,9 +74,8 @@ const db = firebase.database();
 const auth = firebase.auth();
 const button = document.getElementById('sendButton');
 const timerDiv = document.getElementById('timer');
-const spinner = document.getElementById('loadingSpinner');
 
-const MAIN_COOLDOWN_MS = 60000; // 6 hours
+const MAIN_COOLDOWN_MS = 21600000; // 6 hours
 const DB_PATH = "dryice";
 
 let remainingMs = 0;
@@ -127,9 +111,6 @@ async function sendTelegramMessage() {
 }
 
 function updateTimerDisplay() {
-  // Hide spinner once Firebase check finishes
-  if (spinner) spinner.style.display = "none";
-
   if (remainingMs <= 0) {
     button.disabled = false;
     button.textContent = "Notify!";
@@ -146,12 +127,10 @@ function updateTimerDisplay() {
 
 function startCountdown() {
   clearInterval(countdownInterval);
-
   if (remainingMs <= 0) {
     updateTimerDisplay();
     return;
   }
-
   countdownInterval = setInterval(() => {
     remainingMs -= 1000;
     if (remainingMs <= 0) {
@@ -160,15 +139,20 @@ function startCountdown() {
     }
     updateTimerDisplay();
   }, 1000);
-
   updateTimerDisplay();
 }
 
 async function initializeCooldown() {
   try {
     const snapshot = await db.ref(DB_PATH).get();
+
+    // Use Firebase server time offset for synchronization
+    const offsetRef = db.ref(".info/serverTimeOffset");
+    const offsetSnap = await offsetRef.get();
+    const offset = offsetSnap.exists() ? offsetSnap.val() : 0;
+    const now = Date.now() + offset;
+
     const lastClick = snapshot.val();
-    const now = Date.now();
     remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
 
     updateTimerDisplay();
@@ -178,17 +162,15 @@ async function initializeCooldown() {
     alert("Failed to check cooldown. Please refresh the page.");
     button.disabled = true;
     button.textContent = "Error";
-    if (spinner) spinner.style.display = "none";
   }
 }
 
 button.addEventListener('click', async () => {
   button.disabled = true;
   button.textContent = "Thank you!";
-
-  const now = Date.now();
   try {
-    await db.ref(DB_PATH).set(now);
+    // Use server timestamp for synchronized cooldown
+    await db.ref(DB_PATH).set(firebase.database.ServerValue.TIMESTAMP);
   } catch (error) {
     console.error("Cannot write: cooldown active", error);
     alert("Button cannot be pressed yet. Please wait until cooldown is over.");
@@ -197,13 +179,12 @@ button.addEventListener('click', async () => {
 
   remainingMs = MAIN_COOLDOWN_MS;
   startCountdown();
-
   await sendTelegramMessage();
 });
 
 auth.onAuthStateChanged(user => {
   if (user) {
-    initializeCooldown(); // enables the button if no cooldown is active
+    initializeCooldown();
   }
 });
 
@@ -214,9 +195,10 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+// Reload automatically every 10 minutes
 setInterval(() => {
   location.reload();
-}, 600000); // every 10 minutes
+}, 600000);
 </script>
 </body>
 </html>
