@@ -40,7 +40,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref as dbRef, onValue, set as dbSet, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getDatabase, ref as dbRef, onValue, set as dbSet, get as dbGet } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
     const firebaseConfig = {
@@ -70,8 +70,8 @@
     let displayInterval = null;
 
     function formatTime(ms) {
-      const totalSeconds = Math.max(0, Math.floor(ms/1000));
-      const m = Math.floor(totalSeconds/60);
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+      const m = Math.floor(totalSeconds / 60);
       const s = totalSeconds % 60;
       return `${m}:${String(s).padStart(2,"0")}`;
     }
@@ -129,30 +129,41 @@
       btn.disabled = true;
     });
 
-    onAuthStateChanged(auth, user => {
+    onAuthStateChanged(auth, async user => {
       if(user){
-        authError.textContent = ""; // clear error
+        authError.textContent = "";
         const lastSentRef = dbRef(db,"dryice/lastSent");
 
-        // Attach listener after auth succeeds
-        onValue(lastSentRef, snapshot=>{
+        // Initial read
+        try {
+          const snap = await dbGet(lastSentRef);
+          const ts = snap.exists() ? snap.val() : null;
+          updateDisplay(ts);
+          startCountdown(ts);
+        } catch(err){
+          console.error("Initial DB read failed:", err);
+          lastSentDisplay.textContent="Database read failed — check rules.";
+          btn.disabled=false;
+        }
+
+        // Realtime listener
+        onValue(lastSentRef, snapshot => {
           const val = snapshot.val();
-          const ts = typeof val === "number" ? val : (val ? Number(val) : null);
+          const ts = val ? Number(val) : null;
           updateDisplay(ts);
           startCountdown(ts);
         }, err=>{
-          console.error("Firebase read failed:", err);
-          lastSentDisplay.textContent="Database read failed — check rules and authentication.";
-          btn.disabled = false;
+          console.error("Realtime DB read failed:", err);
+          lastSentDisplay.textContent="Realtime database read failed.";
         });
       }
     });
 
-    // Button click
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       btn.textContent = "Sending...";
-      const msgText = `Dry Ice Alert - QR code scanned on ${new Date().toLocaleString()}`;
+      const now = Date.now();
+      const msgText = `Dry Ice Alert - QR code scanned on ${new Date(now).toLocaleString()}`;
 
       try {
         // Send Telegram
@@ -162,14 +173,14 @@
           throw new Error(body.description || 'Telegram API error');
         }
 
-        // Write Firebase Server Timestamp
+        // Write timestamp
         const lastSentRef = dbRef(db,"dryice/lastSent");
-        await dbSet(lastSentRef, serverTimestamp());
+        await dbSet(lastSentRef, now);
       } catch(err){
         console.error("Notification failed:", err);
         lastSentDisplay.textContent=`Send failed — ${err.message || "check server time/rules"}`;
-        btn.disabled = false;
-        btn.textContent = "Send Notification";
+        btn.disabled=false;
+        btn.textContent="Send Notification";
       }
     });
   </script>
