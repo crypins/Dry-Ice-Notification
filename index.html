@@ -102,18 +102,17 @@ async function sendTelegramMessage() {
 function updateTimerDisplay() {
   if (remainingMs <= 0) {
     button.disabled = false;
-    // Keep original "Notify!" text unless the user just clicked
-    if (button.textContent !== "Thank you!") {
-      button.textContent = "Notify!";
-    }
+    button.textContent = "Notify!"; // always reset after cooldown
     timerDiv.textContent = "";
   } else {
     const hours = Math.floor(remainingMs / 3600000);
     const minutes = Math.floor((remainingMs % 3600000) / 60000);
     const seconds = Math.floor((remainingMs % 60000) / 1000);
+    button.textContent = "Thank you!"; // show thank you during cooldown
     timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
   }
 }
+
 
 function startCountdown() {
   clearInterval(countdownInterval);
