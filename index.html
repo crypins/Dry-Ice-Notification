@@ -75,7 +75,7 @@ const auth = firebase.auth();
 const button = document.getElementById('sendButton');
 const timerDiv = document.getElementById('timer');
 
-const MAIN_COOLDOWN_MS = 21600000;
+const MAIN_COOLDOWN_MS = 21600000; // 6 hours
 const DB_PATH = "dryice";
 
 let remainingMs = 0;
@@ -146,13 +146,20 @@ function startCountdown() {
 }
 
 async function initializeCooldown() {
-  const snapshot = await db.ref(DB_PATH).get();
-  const lastClick = snapshot.val();
-  const now = Date.now();
-  remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
+  try {
+    const snapshot = await db.ref(DB_PATH).get();
+    const lastClick = snapshot.val();
+    const now = Date.now();
+    remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
 
-  updateTimerDisplay();
-  startCountdown();
+    updateTimerDisplay();
+    startCountdown();
+  } catch (error) {
+    console.error("Database check failed:", error);
+    alert("Failed to check cooldown. Please refresh the page.");
+    // In case of error, keep button disabled for safety
+    button.disabled = true;
+  }
 }
 
 button.addEventListener('click', async () => {
@@ -176,7 +183,7 @@ button.addEventListener('click', async () => {
 
 auth.onAuthStateChanged(user => {
   if (user) {
-    initializeCooldown();
+    initializeCooldown(); // enables the button only if no cooldown is active
   }
 });
 </script>
