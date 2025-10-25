@@ -84,7 +84,7 @@
     const COOLDOWN_HOURS = 12; // main cooldown
     // -----------------------------------------------
 
-    firebase.initializeApp(FIREBASE_CONFIG);
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const auth = firebase.auth();
     const button = document.getElementById('sendButton');
