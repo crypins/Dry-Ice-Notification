@@ -70,7 +70,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-<script>
+  <script>
 const TELEGRAM_BOT_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
 const TELEGRAM_CHAT_ID = "8399286438";
 const firebaseConfig = {
@@ -102,6 +102,14 @@ auth.signInAnonymously().catch(error => {
   alert("Unable to sign in anonymously. Check Firebase configuration.");
 });
 
+// ✅ NEW FUNCTION: get Firebase server time offset
+async function getServerTime() {
+  const offsetRef = firebase.database().ref(".info/serverTimeOffset");
+  const snap = await offsetRef.get();
+  const offset = snap.val() || 0;
+  return Date.now() + offset;
+}
+
 // Function to get current Pacific Time as formatted string
 function getPacificTimeString() {
   const now = new Date();
@@ -127,7 +135,6 @@ async function sendTelegramMessage() {
 }
 
 function updateTimerDisplay() {
-  // Hide spinner once Firebase check finishes
   if (spinner) spinner.style.display = "none";
 
   if (remainingMs <= 0) {
@@ -168,7 +175,7 @@ async function initializeCooldown() {
   try {
     const snapshot = await db.ref(DB_PATH).get();
     const lastClick = snapshot.val();
-    const now = Date.now();
+    const now = await getServerTime(); // ✅ CHANGED (was Date.now())
     remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
 
     updateTimerDisplay();
@@ -186,7 +193,7 @@ button.addEventListener('click', async () => {
   button.disabled = true;
   button.textContent = "Thank you!";
 
-  const now = Date.now();
+  const now = await getServerTime(); // ✅ CHANGED (was Date.now())
   try {
     await db.ref(DB_PATH).set(now);
   } catch (error) {
@@ -203,7 +210,7 @@ button.addEventListener('click', async () => {
 
 auth.onAuthStateChanged(user => {
   if (user) {
-    initializeCooldown(); // enables the button if no cooldown is active
+    initializeCooldown();
   }
 });
 
@@ -217,6 +224,6 @@ document.addEventListener("visibilitychange", () => {
 setInterval(() => {
   location.reload();
 }, 600000); // every 10 minutes
-</script>
+  </script>
 </body>
 </html>
