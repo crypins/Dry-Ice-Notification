@@ -1,74 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dry Ice Notification</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background: #f0f0f0;
-    }
-    .box {
-      background: white;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      text-align: center;
-      width: 300px;
-    }
-    button {
-      padding: 0.7rem 1.5rem;
-      font-size: 1rem;
-      margin-top: 1rem;
-      cursor: pointer;
-      border: none;
-      border-radius: 5px;
-      background-color: #007bff;
-      color: white;
-    }
-    button:disabled {
-      background-color: grey;
-      cursor: not-allowed;
-    }
-    .timer {
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
-      color: #555;
-    }
-    .test-block {
-      margin-top: 1rem;
-      font-size: 0.9rem;
-      color: #333;
-    }
-  </style>
-</head>
-<body>
-  <div class="box">
-    <h2>Dry Ice Alert</h2>
-    <p>Please click the button below to send a notification. If the site isn't working, send an email to clyde.rypins@berkeley.edu. A cooldown is in place to prevent overuse.</p>
-    <button id="sendButton">Notify!</button>
-    <div class="timer" id="timer"></div>
-
-    <!-- TESTING BLOCK: Can be removed after testing -->
-    <div class="test-block">
-      <label>
-        <input type="checkbox" id="testCooldown"> Use 5s cooldown (test only)
-      </label>
-    </div>
-  </div>
-
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-
 <script>
-  // ----------- USER INPUT REQUIRED ----------------
   const TELEGRAM_BOT_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
   const TELEGRAM_CHAT_ID = "8399286438";
   const firebaseConfig = {
@@ -81,8 +11,7 @@
     appId: "1:217680440618:web:c07ecbe063e68ea49bc253",
     measurementId: "G-GEJ4RCBGF3"
   };
-  const COOLDOWN_HOURS = 12; // main cooldown
-  // -----------------------------------------------
+  const COOLDOWN_HOURS = 12;
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -92,10 +21,12 @@
   const testCheckbox = document.getElementById('testCooldown');
 
   const MAIN_COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
-  const TEST_COOLDOWN_MS = 5000; // 5 seconds for testing
+  const TEST_COOLDOWN_MS = 5000;
   const DB_PATH = "dryice";
 
-  // Anonymous authentication
+  let remainingMs = 0; // Tracks remaining cooldown locally
+  let countdownInterval;
+
   auth.signInAnonymously().catch(error => {
     console.error("Auth error:", error);
     alert("Unable to sign in anonymously. Check Firebase configuration.");
@@ -118,65 +49,70 @@
     return testCheckbox.checked ? TEST_COOLDOWN_MS : MAIN_COOLDOWN_MS;
   }
 
-  function updateTimer(remainingMs) {
+  function updateTimerDisplay() {
     if (remainingMs <= 0) {
       button.disabled = false;
       button.textContent = "Send Message";
       timerDiv.textContent = "";
-      return;
+    } else {
+      const hours = Math.floor(remainingMs / 3600000);
+      const minutes = Math.floor((remainingMs % 3600000) / 60000);
+      const seconds = Math.floor((remainingMs % 60000) / 1000);
+      timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
     }
-    const hours = Math.floor(remainingMs / 3600000);
-    const minutes = Math.floor((remainingMs % 3600000) / 60000);
-    const seconds = Math.floor((remainingMs % 60000) / 1000);
-    timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
   }
 
-  async function checkCooldown() {
+  function startCountdown() {
+    clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      remainingMs -= 1000;
+      if (remainingMs < 0) remainingMs = 0;
+      updateTimerDisplay();
+    }, 1000);
+    updateTimerDisplay(); // Update immediately
+  }
+
+  async function initializeCooldown() {
     const snapshot = await db.ref(DB_PATH).get();
     const lastClick = snapshot.val();
     const now = Date.now();
     const cooldownMs = getCurrentCooldownMs();
-    let remaining = lastClick ? (lastClick + cooldownMs - now) : 0;
+    remainingMs = lastClick ? (lastClick + cooldownMs - now) : 0;
 
-    if (remaining > 0) {
+    if (remainingMs > 0) {
       button.disabled = true;
       button.textContent = "Thank you!";
     } else {
       button.disabled = false;
       button.textContent = "Send Message";
+      remainingMs = 0; // ensure non-negative
     }
 
-    setInterval(() => {
-      const snapshot = db.ref(DB_PATH).get().then(snap => {
-        const lastClick = snap.val();
-        const remainingMs = lastClick ? (lastClick + getCurrentCooldownMs() - Date.now()) : 0;
-        updateTimer(remainingMs);
-      });
-    }, 1000);
+    startCountdown();
   }
 
-  // ----------------- BUTTON CLICK -----------------
   button.addEventListener('click', async () => {
     button.disabled = true;
     button.textContent = "Thank you!";
 
-    // Start cooldown immediately by writing timestamp to Firebase
+    const now = Date.now();
     try {
-      await db.ref(DB_PATH).set(Date.now());
+      await db.ref(DB_PATH).set(now);
     } catch (error) {
       console.error("Cannot write: cooldown active", error);
       alert("Button cannot be pressed yet. Please wait until cooldown is over.");
+      return;
     }
 
-    // Then send Telegram message
+    remainingMs = getCurrentCooldownMs();
+    startCountdown();
+
     await sendTelegramMessage();
   });
 
   auth.onAuthStateChanged(user => {
     if (user) {
-      checkCooldown();
+      initializeCooldown();
     }
   });
 </script>
-</body>
-</html>
