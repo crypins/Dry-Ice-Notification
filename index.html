@@ -75,6 +75,10 @@
       }
     }
   </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.30.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.30.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.30.0/firebase-auth-compat.js"></script>
 </head>
 <body>
   <div class="card">
@@ -162,20 +166,35 @@
       }
     }
 
+    // === Firebase initialization ===
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // Optional: Sign in anonymously to satisfy rules
+    firebase.auth().signInAnonymously().catch(console.error);
+
     // === Initialize ===
     updateTimeDisplay();
     handleButtonState();
-    setInterval(updateTimeDisplay, 1000); // Live per second
+    setInterval(updateTimeDisplay, 1000);
 
     // === Click handler ===
     btn.addEventListener("click", async (event) => {
-      // 🧠 Block programmatic clicks
       if (!event.isTrusted) {
         console.warn("Blocked non-human click attempt.");
         return;
       }
 
-      // Always confirm
       const confirmSend = confirm("Are you sure you want to send a dry ice alert?");
       if (!confirmSend) return;
 
@@ -190,10 +209,17 @@
       try {
         // Send Telegram message
         await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`);
+
+        // Save locally
         localStorage.setItem(STORAGE_KEY, now.toString());
         updateTimeDisplay();
         handleButtonState();
-      } catch {
+
+        // Save to Firebase
+        await firebase.database().ref("dryice/lastSent").set(now);
+
+      } catch (error) {
+        console.error(error);
         btn.textContent = "Error — Try Again";
         btn.disabled = false;
       }
