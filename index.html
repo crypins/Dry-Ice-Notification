@@ -28,20 +28,18 @@
     .timestamp { margin-top:1rem; font-size:.95rem; color:#555; }
     @media (max-width:480px) { :root { --text-size:1.05rem; } .card{padding:1rem} }
   </style>
-  <!-- Use modular Firebase SDK (v11) via ES modules -->
 </head>
 <body>
   <div class="card">
     <h2>Dry Ice Notification</h2>
     <p>Click the button to send a dry ice alert.</p>
-    <button id="notifyBtn">Send Notification</button>
-    <div id="lastSentDisplay" class="timestamp">Loading status...</div>
+    <!-- 🔸 Button starts disabled until DB is checked -->
+    <button id="notifyBtn" disabled>Send Notification</button>
+    <div id="lastSentDisplay" class="timestamp">Checking database...</div>
   </div>
 
-  <!-- Firebase modular SDK imports as ES modules -->
   <script type="module">
-    // ---------- CONFIGURATION (REPLACE THESE) ----------
-    // Create a web app in Firebase console and paste your config here.
+    // ---------- CONFIGURATION ----------
     const firebaseConfig = {
       apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
       authDomain: "dryicenotif.firebaseapp.com",
@@ -53,113 +51,75 @@
       measurementId: "G-GEJ4RCBGF3"
     };
 
-    // Telegram bot configuration (replace if desired)
     const TELEGRAM_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
     const TELEGRAM_CHAT_ID = "8399286438";
-
-    // Countdown duration
     const FIVE_MINUTES = 5 * 60 * 1000;
 
-    // ---------- Imports from Firebase v11 modular SDK ----------
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import {
-      getDatabase,
-      ref as dbRef,
-      onValue,
-      set as dbSet,
-      get as dbGet
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getDatabase, ref as dbRef, onValue, set as dbSet, get as dbGet } 
+      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    // ---------- Initialize Firebase ----------
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const lastSentRef = dbRef(db, "dryice/lastSent"); // single location for timestamp
+    const lastSentRef = dbRef(db, "dryice/lastSent");
 
-    // ---------- DOM elements ----------
     const btn = document.getElementById("notifyBtn");
     const lastSentDisplay = document.getElementById("lastSentDisplay");
 
-    // ---------- Utility: format ms -> mm:ss ----------
+    let countdownInterval = null;
+    let displayInterval = null;
+
     function formatTime(ms) {
       const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return `${minutes}:${String(seconds).padStart(2, "0")}`;
+      const m = Math.floor(totalSeconds / 60);
+      const s = totalSeconds % 60;
+      return `${m}:${String(s).padStart(2, "0")}`;
     }
 
-    // ---------- Local intervals ----------
-    let countdownInterval = null; // updates button countdown per second
-    let displayInterval = null;   // updates "time since last" per second
-
-    // ---------- Update the "time since last notification" (live per-second) ----------
     function startDisplayUpdater(remoteTimestamp) {
-      // Clear previous if any
       if (displayInterval) clearInterval(displayInterval);
-
-      // If there is no timestamp yet, show default
       if (!remoteTimestamp) {
         lastSentDisplay.textContent = "No notification sent yet.";
         return;
       }
-
-      // Update immediately and then every second
       function updateNow() {
         const elapsedMs = Date.now() - remoteTimestamp;
         const secs = Math.floor(elapsedMs / 1000);
-
-        if (secs < 5) {
-          lastSentDisplay.textContent = "Notification just sent.";
-        } else if (secs < 60) {
-          lastSentDisplay.textContent = `Last notification sent ${secs} second${secs === 1 ? "" : "s"} ago.`;
-        } else if (secs < 3600) {
-          const m = Math.floor(secs / 60);
-          const s = secs % 60;
-          lastSentDisplay.textContent = `Last notification sent ${m} min ${s}s ago.`;
+        if (secs < 5) lastSentDisplay.textContent = "Notification just sent.";
+        else if (secs < 60) lastSentDisplay.textContent = `Last sent ${secs}s ago.`;
+        else if (secs < 3600) {
+          const m = Math.floor(secs / 60), s = secs % 60;
+          lastSentDisplay.textContent = `Last sent ${m}m ${s}s ago.`;
         } else {
-          const h = Math.floor(secs / 3600);
-          const m = Math.floor((secs % 3600) / 60);
-          lastSentDisplay.textContent = `Last notification sent ${h}h ${m}m ago.`;
+          const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+          lastSentDisplay.textContent = `Last sent ${h}h ${m}m ago.`;
         }
       }
-
       updateNow();
       displayInterval = setInterval(updateNow, 1000);
     }
 
-    // ---------- Manage button state and visible countdown ----------
     function startCountdown(remoteTimestamp) {
-      // Cleanup previous countdown interval
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-      }
-
+      if (countdownInterval) clearInterval(countdownInterval);
       if (!remoteTimestamp) {
-        // No timestamp => button active
         btn.disabled = false;
         btn.textContent = "Send Notification";
         return;
       }
-
       const elapsed = Date.now() - remoteTimestamp;
       const remaining = FIVE_MINUTES - elapsed;
-
       if (remaining <= 0) {
         btn.disabled = false;
         btn.textContent = "Send Notification";
         return;
       }
-
-      // Disable and show live remaining time
       btn.disabled = true;
       btn.textContent = `Thank you! — available in ${formatTime(remaining)}`;
-
       countdownInterval = setInterval(() => {
         const nowElapsed = Date.now() - remoteTimestamp;
         const nowRemaining = FIVE_MINUTES - nowElapsed;
         if (nowRemaining <= 0) {
           clearInterval(countdownInterval);
-          countdownInterval = null;
           btn.disabled = false;
           btn.textContent = "Send Notification";
         } else {
@@ -168,62 +128,40 @@
       }, 1000);
     }
 
-    // ---------- React to remote value changes in Realtime DB ----------
-    // onValue gives real-time updates across all connected clients.
+    // ---------- Ensure DB checked before enabling ----------
+    let dbChecked = false;
+
     onValue(lastSentRef, (snapshot) => {
-      // snapshot.val() will be the timestamp (ms since epoch) or null/undefined
+      dbChecked = true;
       const val = snapshot.val();
       const remoteTimestamp = typeof val === "number" ? val : (val ? Number(val) : null);
-
-      // Update UI parts
       startDisplayUpdater(remoteTimestamp);
       startCountdown(remoteTimestamp);
     }, (err) => {
       console.error("Firebase onValue error:", err);
-      // If DB read fails, fall back to enabling the button so user isn't blocked.
+      lastSentDisplay.textContent = "Status unavailable (offline).";
+      dbChecked = true;
       btn.disabled = false;
       btn.textContent = "Send Notification";
-      lastSentDisplay.textContent = "Status unavailable (offline).";
     });
 
-    // ---------- Click handler: human-only safeguard, confirm, send telegram, update DB ----------
     btn.addEventListener("click", async (event) => {
-      // Only accept genuine user clicks
+      if (!dbChecked) {
+        alert("Please wait, still checking server status...");
+        return;
+      }
       if (!event.isTrusted) {
         console.warn("Blocked non-human click attempt.");
         return;
       }
-
-      // Always ask for confirmation
       if (!confirm("Are you sure you want to send a dry ice alert?")) return;
-
-      // Show sending UI
       btn.disabled = true;
       btn.textContent = "Sending...";
-
-      // Prepare message using local device's local time string
       const now = Date.now();
       const msgText = `Dry Ice Alert - QR code scanned on ${new Date(now).toLocaleString()}`;
-
       try {
-        // Send message to Telegram (public bot)
-        const tgResp = await fetch(
-          `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msgText)}`
-        );
-
-        // optional: check TG success (status 200 and ok:true)
-        const tgJson = await tgResp.json();
-        if (!tgJson || tgJson.ok !== true) {
-          console.warn("Telegram API responded with an error:", tgJson);
-          // allow continuing to set DB so other clients see action; you may choose differently
-        }
-
-        // Write timestamp to Firebase Realtime Database for global sync
-        // Use a number (ms since epoch) so clients read as Number
+        const tgResp = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msgText)}`);
         await dbSet(lastSentRef, now);
-
-        // The onValue listener will pick up the new value and update UI for all clients,
-        // so nothing else required here.
       } catch (err) {
         console.error("Send or DB update failed:", err);
         btn.textContent = "Error — Try Again";
@@ -231,16 +169,17 @@
       }
     });
 
-    // ---------- Extra: on initial load, attempt a single read to seed UI quickly ----------
     (async function seedInitialUI() {
       try {
         const snap = await dbGet(lastSentRef);
-        const val = snap && snap.exists() ? snap.val() : null;
+        dbChecked = true;
+        const val = snap.exists() ? snap.val() : null;
         const remoteTimestamp = typeof val === "number" ? val : (val ? Number(val) : null);
         startDisplayUpdater(remoteTimestamp);
         startCountdown(remoteTimestamp);
       } catch (e) {
         console.warn("Initial DB read failed:", e);
+        dbChecked = true;
         lastSentDisplay.textContent = "Status unavailable (offline).";
         btn.disabled = false;
         btn.textContent = "Send Notification";
