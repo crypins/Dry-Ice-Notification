@@ -45,7 +45,7 @@
 <body>
   <div class="box">
     <h2>Dry Ice Alert</h2>
-    <p>Please click the button below to send a notification. If the site isn't working, send an email to clyde.rypins@berkeley.edu. A cooldown is in place to prevent overuse.</p>
+    <p>Please click the button below to send a notification. If the site isn't working, please send an email to clyde.rypins@berkeley.edu</p>
     <button id="sendButton">Notify!</button>
     <div class="timer" id="timer"></div>
   </div>
@@ -121,7 +121,7 @@ function updateTimerDisplay() {
     const seconds = Math.floor((remainingMs % 60000) / 1000);
     button.disabled = true;
     button.textContent = "Thank you!";
-    timerDiv.textContent = `Next activation in ${hours}h ${minutes}m ${seconds}s`;
+    timerDiv.textContent = `Notification already sent - can be sent again after ${hours}h ${minutes}m ${seconds}s`;
   }
 }
 
