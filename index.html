@@ -116,11 +116,22 @@ function updateTimerDisplay() {
 
 function startCountdown() {
   clearInterval(countdownInterval);
+
+  // Only start countdown if there is remaining time
+  if (remainingMs <= 0) {
+    updateTimerDisplay();
+    return;
+  }
+
   countdownInterval = setInterval(() => {
     remainingMs -= 1000;
-    if (remainingMs < 0) remainingMs = 0;
+    if (remainingMs <= 0) {
+      remainingMs = 0;
+      clearInterval(countdownInterval);
+    }
     updateTimerDisplay();
   }, 1000);
+
   updateTimerDisplay();
 }
 
@@ -130,7 +141,6 @@ async function initializeCooldown() {
   const now = Date.now();
   remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
 
-  // FIX: Update button state immediately before starting countdown
   updateTimerDisplay();
   startCountdown();
 }
