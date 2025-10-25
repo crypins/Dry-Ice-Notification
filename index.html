@@ -31,12 +31,8 @@
       line-height: 1.6;
     }
 
-    h2 { margin-top: 0; }
-
-    #timeSince {
-      font-size: 1rem;
-      color: #555;
-      margin-top: 0.75em;
+    h2 {
+      margin-top: 0;
     }
 
     button {
@@ -51,16 +47,32 @@
       transition: background-color 0.3s ease, transform 0.1s ease;
     }
 
-    button:hover:not(:disabled) { background-color: #0056b3; }
-    button:active:not(:disabled) { transform: scale(0.98); }
+    button:hover:not(:disabled) {
+      background-color: #0056b3;
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
     button:disabled {
       background-color: #aaa;
       cursor: not-allowed;
     }
 
+    .timestamp {
+      margin-top: 1em;
+      font-size: 1rem;
+      color: #555;
+    }
+
     @media (max-width: 480px) {
-      :root { --text-size: 0.95rem; }
-      .card { padding: 1.5em; }
+      :root {
+        --text-size: 0.95rem;
+      }
+      .card {
+        padding: 1.5em;
+      }
     }
   </style>
 </head>
@@ -69,98 +81,28 @@
     <h2>Dry Ice Notification</h2>
     <p>Please click the button below to send a notification about low dry ice levels.</p>
     <button id="notifyBtn">Send Notification</button>
-    <div id="timeSince">No notifications sent yet.</div>
+    <div id="lastSentDisplay" class="timestamp"></div>
   </div>
 
   <script>
-    // === Telegram Bot Configuration ===
+    // === Configuration ===
     const token = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
     const chatId = "8399286438";
+    const STORAGE_KEY = "dryice_alert_last_sent_local"; // Store local time
 
-    // === Local Storage Key + Timing Constants ===
-    const STORAGE_KEY = "dryice_alert_last_sent";  // key name for saved timestamp
-    const FIVE_MINUTES = 5 * 60 * 1000;            // 5 minutes in milliseconds
-
-    // === DOM Elements ===
     const btn = document.getElementById("notifyBtn");
-    const timeDisplay = document.getElementById("timeSince");
+    const lastSentDisplay = document.getElementById("lastSentDisplay");
 
-    /**
-     * Updates the "time since last press" display.
-     * Runs every second to keep it current.
-     */
-    function updateTimeSince() {
+    // 🕒 Function to show how long ago the last notification was sent
+    function updateTimeDisplay() {
       const lastSent = localStorage.getItem(STORAGE_KEY);
-
-      // Show default message if no notifications yet
       if (!lastSent) {
-        timeDisplay.textContent = "No notifications sent yet.";
+        lastSentDisplay.textContent = "No notification sent yet.";
         return;
       }
 
-      // Calculate elapsed time since last notification
-      const diff = Date.now() - parseInt(lastSent);
-      const minutes = Math.floor(diff / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      timeDisplay.textContent = `Last notification sent ${minutes}m ${seconds}s ago.`;
-    }
+      const elapsedMs = Date.now() - parseInt(lastSent);
+      const elapsedMins = Math.floor(elapsedMs / 60000);
+      const elapsedHrs = Math.floor(elapsedMins / 60);
 
-    // Update the display every second
-    setInterval(updateTimeSince, 1000);
-    updateTimeSince(); // Run immediately on load
-
-    /**
-     * On page load, disable button if notification was sent recently.
-     */
-    const lastSent = localStorage.getItem(STORAGE_KEY);
-    if (lastSent && Date.now() - parseInt(lastSent) < FIVE_MINUTES) {
-      btn.disabled = true;
-      btn.textContent = "Thank you!";
-    }
-
-    /**
-     * Handles the button click event:
-     *  - Asks for confirmation if pressed again within 5 minutes
-     *  - Sends Telegram message via fetch()
-     *  - Saves timestamp and updates display
-     */
-    btn.addEventListener("click", async () => {
-      const lastSent = localStorage.getItem(STORAGE_KEY);
-      const within5min = lastSent && Date.now() - parseInt(lastSent) < FIVE_MINUTES;
-
-      // Ask before resending too soon
-      if (within5min) {
-        const confirmResend = confirm(
-          "A notification was sent recently. Are you sure you want to send another?"
-        );
-        if (!confirmResend) return;
-      }
-
-      // Show sending state
-      btn.disabled = true;
-      btn.textContent = "Sending...";
-
-      // Create the Telegram message with timestamp
-      const msg = encodeURIComponent(
-        "Dry Ice Alert - QR code scanned on " + new Date().toLocaleString()
-      );
-
-      try {
-        // Send the message to Telegram Bot API
-        await fetch(
-          `https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${msg}`
-        );
-
-        // Save new timestamp and update UI
-        localStorage.setItem(STORAGE_KEY, Date.now().toString());
-        btn.textContent = "Thank you!";
-        updateTimeSince();
-      } catch {
-        // Handle network or API errors
-        btn.textContent = "Error — Try Again";
-        btn.disabled = false;
-      }
-    });
-  </script>
-</body>
-</html>
+      if (e
