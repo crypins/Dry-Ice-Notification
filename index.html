@@ -58,7 +58,16 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getDatabase, ref as dbRef, onValue, set as dbSet, get as dbGet } 
       from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
+    const auth = getAuth(app);
+    signInAnonymously(auth).catch((err) => console.error("Anon sign-in failed:", err));
+    onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // user.uid available, DB writes allowed (per rules)
+      }
+    });
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const lastSentRef = dbRef(db, "dryice/lastSent");
