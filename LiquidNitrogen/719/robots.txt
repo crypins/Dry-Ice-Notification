@@ -1,0 +1,17 @@
+# Prevent all search engines from indexing or crawling this page
+User-agent: *
+Disallow: /
+
+# Optional: explicitly prevent AI crawlers and other bots
+User-agent: GPTBot
+Disallow: /
+User-agent: ChatGPT-User
+Disallow: /
+User-agent: Google-Extended
+Disallow: /
+User-agent: CCBot
+Disallow: /
+User-agent: FacebookBot
+Disallow: /
+User-agent: Pinterest
+Disallow: /
