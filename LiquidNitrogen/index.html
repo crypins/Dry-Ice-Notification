@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liquid Nitrogen Notification</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden; 
+    }
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      min-height: 100dvh; 
+      background: #f0f0f0;
+      margin: 0;
+    }
+    .box {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 300px;
+    }
+    button {
+      padding: 0.7rem 1.5rem;
+      font-size: 1rem;
+      margin-top: 1rem;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
+      position: relative;
+    }
+    button:disabled {
+      background-color: grey;
+      cursor: not-allowed;
+    }
+    .spinner {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      border: 2px solid white;
+      border-top-color: transparent;
+      border-radius: 50%;
+      margin-left: 8px;
+      vertical-align: middle;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .timer {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Liquid Nitrogen Alert</h2>
+    <p>Please click the button below to send a notification. If the site isn't working, please send an email to clyde.rypins@berkeley.edu</p>
+    <button id="sendButton" disabled>Loading<span class="spinner" id="loadingSpinner"></span></button>
+    <div class="timer" id="timer"></div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <script>
+const TELEGRAM_BOT_TOKEN = "7639047101:AAEv-nMGs6624ESq3zpqOXlu0ZW9rvk1EjI";
+const TELEGRAM_CHAT_ID = "8399286438";
+const firebaseConfig = {
+  apiKey: "AIzaSyBQOtE5v_GKRpmPaNeuOgceUcLGlsjA4F8",
+  authDomain: "dryicenotif.firebaseapp.com",
+  databaseURL: "https://dryicenotif-default-rtdb.firebaseio.com",
+  projectId: "dryicenotif",
+  storageBucket: "dryicenotif.firebasestorage.app",
+  messagingSenderId: "217680440618",
+  appId: "1:217680440618:web:c07ecbe063e68ea49bc253",
+  measurementId: "G-GEJ4RCBGF3"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+const button = document.getElementById('sendButton');
+const timerDiv = document.getElementById('timer');
+const spinner = document.getElementById('loadingSpinner');
+
+const MAIN_COOLDOWN_MS = 21600000; // 6 hours
+const DB_PATH = "dryice";
+
+let remainingMs = 0;
+let countdownInterval;
+
+auth.signInAnonymously().catch(error => {
+  console.error("Auth error:", error);
+  alert("Unable to sign in anonymously. Check Firebase configuration.");
+});
+
+// ✅ Uses correct method for server time
+async function getServerTime() {
+  return new Promise((resolve) => {
+    const offsetRef = firebase.database().ref(".info/serverTimeOffset");
+    offsetRef.once("value", snap => {
+      const offset = snap.val() || 0;
+      resolve(Date.now() + offset);
+    });
+  });
+}
+
+function getPacificTimeString() {
+  const now = new Date();
+  const pacificTime = now.toLocaleString("en-US", { 
+    timeZone: "America/Los_Angeles",
+    hour12: false
+  });
+  return pacificTime;
+}
+
+async function sendTelegramMessage() {
+  const timestamp = getPacificTimeString();
+  const message = encodeURIComponent(`Liquid Nitrogen (719) Button was clicked at Pacific Time: ${timestamp}`);
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${message}`;
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.description);
+  } catch (error) {
+    console.error("Telegram send error:", error);
+    alert("Failed to send message. Check console for details.");
+  }
+}
+
+function updateTimerDisplay() {
+  if (spinner) spinner.style.display = "none";
+
+  if (remainingMs <= 0) {
+    button.disabled = false;
+    button.textContent = "Notify!";
+    timerDiv.textContent = "";
+  } else {
+    const hours = Math.floor(remainingMs / 3600000);
+    const minutes = Math.floor((remainingMs % 3600000) / 60000);
+    const seconds = Math.floor((remainingMs % 60000) / 1000);
+    button.disabled = true;
+    button.textContent = "Thank you!";
+    timerDiv.textContent = `Notification already sent - can be sent again after ${hours}h ${minutes}m ${seconds}s`;
+  }
+}
+
+function startCountdown() {
+  clearInterval(countdownInterval);
+
+  if (remainingMs <= 0) {
+    updateTimerDisplay();
+    return;
+  }
+
+  countdownInterval = setInterval(() => {
+    remainingMs -= 1000;
+    if (remainingMs <= 0) {
+      remainingMs = 0;
+      clearInterval(countdownInterval);
+    }
+    updateTimerDisplay();
+  }, 1000);
+
+  updateTimerDisplay();
+}
+
+async function initializeCooldown() {
+  try {
+    const snapshot = await db.ref(DB_PATH).get();
+    const lastClick = snapshot.val();
+    const now = await getServerTime();
+    remainingMs = lastClick ? (lastClick + MAIN_COOLDOWN_MS - now) : 0;
+
+    updateTimerDisplay();
+    startCountdown();
+  } catch (error) {
+    console.error("Database check failed:", error);
+    alert("Failed to check cooldown. Please refresh the page.");
+    button.disabled = true;
+    button.textContent = "Error";
+    if (spinner) spinner.style.display = "none";
+  }
+}
+
+button.addEventListener('click', async () => {
+  button.disabled = true;
+  button.textContent = "Thank you!";
+
+  const now = await getServerTime();
+  try {
+    await db.ref(DB_PATH).set(now);
+  } catch (error) {
+    console.error("Cannot write: cooldown active", error);
+    alert("Button cannot be pressed yet. Please wait until cooldown is over.");
+    return;
+  }
+
+  remainingMs = MAIN_COOLDOWN_MS;
+  startCountdown();
+
+  await sendTelegramMessage();
+});
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    initializeCooldown();
+  }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    location.reload();
+  }
+});
+
+setInterval(() => {
+  location.reload();
+}, 600000); // every 10 minutes
+  </script>
+</body>
+</html>
